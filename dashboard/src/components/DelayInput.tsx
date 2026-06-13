@@ -39,11 +39,17 @@ export default function DelayInput({ className, saveDelay }: Props) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [delayState]);
 
-	// Sync display when toggling pause or when an external delay change arrives while paused
+	// On unpause: sync display to current store value in case it changed while paused
 	useEffect(() => {
-		dispatchDelay({ type: "sync", value: currentDelay.toString() });
+		if (!isPaused) dispatchDelay({ type: "sync", value: currentDelay.toString() });
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isPaused, isPaused ? currentDelay : null]);
+	}, [isPaused]);
+
+	// While paused: keep display in sync if the delay changes externally
+	useEffect(() => {
+		if (isPaused) dispatchDelay({ type: "sync", value: currentDelay.toString() });
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [currentDelay]);
 
 	const handleChange = (v: string) => {
 		dispatchDelay({ type: "input", value: v });

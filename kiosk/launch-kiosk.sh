@@ -65,18 +65,20 @@ COMMON_FLAGS=(
     --ignore-gpu-blocklist
     --enable-gpu-rasterization
     --enable-zero-copy
-    --enable-features=VaapiVideoDecodeLinuxGL
 )
 
-# Wayland-specific flags — required on Pi OS Bookworm (labwc default)
+# Wayland-specific flags — required on Pi OS Bookworm (labwc default).
+# Combine ALL --enable-features into one flag: Chrome only honors the last
+# occurrence, so separate flags silently drop earlier ones.
 WAYLAND_FLAGS=(
     --ozone-platform=wayland
-    --enable-features=UseOzonePlatform
+    --enable-features=UseOzonePlatform,VaapiVideoDecodeLinuxGL
 )
 
 # X11-specific flags
 X11_FLAGS=(
     --display=:0
+    --enable-features=VaapiVideoDecodeLinuxGL
 )
 
 if [ "$IS_WAYLAND" -eq 1 ]; then
