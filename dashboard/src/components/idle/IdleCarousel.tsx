@@ -2,13 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { JolpicaConstructorStanding, JolpicaConstructorStandingsResponse, JolpicaDriverStanding, JolpicaDriverStandingsResponse } from "@/types/jolpica.type";
-import type { Round } from "@/types/schedule.type";
+import type { JolpicaConstructorStanding, JolpicaConstructorStandingsResponse, JolpicaDriverStanding, JolpicaDriverStandingsResponse, JolpicaLastRaceResponse, JolpicaQualifyingResponse, JolpicaQualifyingResult, JolpicaRace, JolpicaScheduleRace, JolpicaScheduleResponse } from "@/types/jolpica.type";
+import type { Round, Session } from "@/types/schedule.type";
 
 import IdleCountdownBar from "@/components/idle/IdleCountdownBar";
 import DriverStandings from "@/components/idle/DriverStandings";
 import ConstructorStandings from "@/components/idle/ConstructorStandings";
 import NextRacePanel from "@/components/idle/NextRacePanel";
+import CircuitSchedulePanel from "@/components/idle/CircuitSchedulePanel";
+import LastRacePanel from "@/components/idle/LastRacePanel";
+import DriverSeasonPanel from "@/components/idle/DriverSeasonPanel";
 
 const CYCLE_MS = 15_000;
 const JOLPICA_BASE = "https://api.jolpi.ca/ergast/f1";
@@ -50,11 +53,57 @@ async function cachedFetch<T>(url: string): Promise<T | null> {
 	}
 }
 
+const isKiosk = process.env.NEXT_PUBLIC_KIOSK === "1";
+
+// Converts a Jolpica next-race response into our Round type so schedule panels
+// work even when the local Rust realtime service isn't running.
+function jolpicaRaceToRound(race: JolpicaScheduleRace): Round {
+	const toISO = (s: { date: string; time: string }) => `${s.date}T${s.time}`;
+	const addMins = (iso: string, mins: number) =>
+		new Date(new Date(iso).getTime() + mins * 60_000).toISOString();
+
+	const sessions: Session[] = [];
+	const push = (kind: string, s: { date: string; time: string } | undefined, durationMins = 60) => {
+		if (!s) return;
+		const start = toISO(s);
+		sessions.push({ kind, start, end: addMins(start, durationMins) });
+	};
+
+	push("Practice 1", race.FirstPractice);
+	push("Practice 2", race.SecondPractice);
+	push("Sprint Qualifying", race.SprintQualifying ?? race.SprintShootout, 45);
+	push("Sprint", race.Sprint, 30);
+	push("Practice 3", race.ThirdPractice);
+	push("Qualifying", race.Qualifying);
+
+	const raceTime = race.time ?? "00:00:00Z";
+	const raceStart = `${race.date}T${raceTime}`;
+	sessions.push({ kind: "Race", start: raceStart, end: addMins(raceStart, 120) });
+	sessions.sort((a, b) => a.start.localeCompare(b.start));
+
+	return {
+		name: race.raceName,
+		countryName: race.Circuit.Location.country,
+		countryKey: null,
+		start: sessions[0]?.start ?? raceStart,
+		end: addMins(raceStart, 120),
+		sessions,
+		over: false,
+	};
+}
+
 type Props = {
 	onPreLive?: () => void;
 };
 
-const PANEL_LABELS = ["Drivers' Championship", "Constructors' Championship", "Next Race Weekend"];
+const PANEL_LABELS = [
+	"Drivers' Championship",
+	"Constructors' Championship",
+	"Next Race Weekend",
+	"Circuit & Schedule",
+	"Last Race Results",
+	"Driver Season Stats",
+];
 
 export default function IdleCarousel({ onPreLive }: Props) {
 	const [activePanel, setActivePanel] = useState(0);
@@ -62,9 +111,15 @@ export default function IdleCarousel({ onPreLive }: Props) {
 
 	const [driverStandings, setDriverStandings] = useState<JolpicaDriverStanding[] | null>(null);
 	const [driverSeason, setDriverSeason] = useState("");
+	const [driverLoaded, setDriverLoaded] = useState(false);
 	const [constructorStandings, setConstructorStandings] = useState<JolpicaConstructorStanding[] | null>(null);
 	const [constructorSeason, setConstructorSeason] = useState("");
+	const [constructorLoaded, setConstructorLoaded] = useState(false);
 	const [nextRound, setNextRound] = useState<Round | null>(null);
+	const [scheduleLoaded, setScheduleLoaded] = useState(false);
+	const [lastRace, setLastRace] = useState<JolpicaRace | null>(null);
+	const [lastRaceLoaded, setLastRaceLoaded] = useState(false);
+	const [qualifyingResults, setQualifyingResults] = useState<JolpicaQualifyingResult[] | null>(null);
 
 	// Derive next upcoming session for the countdown bar
 	const nextSession = nextRound?.sessions.find((s) => new Date(s.start) > new Date()) ?? null;
@@ -73,29 +128,64 @@ export default function IdleCarousel({ onPreLive }: Props) {
 	useEffect(() => {
 		cachedFetch<JolpicaDriverStandingsResponse>(`${JOLPICA_BASE}/current/driverstandings.json?limit=20`)
 			.then((res) => {
-				if (!res) return; // cold-start outage — keep null to show placeholder
-				const list = res.MRData.StandingsTable.StandingsLists[0];
-				if (list) {
-					setDriverStandings(list.DriverStandings);
-					setDriverSeason(list.season);
+				if (res) {
+					const list = res.MRData.StandingsTable.StandingsLists[0];
+					if (list) {
+						setDriverStandings(list.DriverStandings);
+						setDriverSeason(list.season);
+					}
 				}
+				setDriverLoaded(true);
 			});
 
 		cachedFetch<JolpicaConstructorStandingsResponse>(`${JOLPICA_BASE}/current/constructorstandings.json?limit=10`)
 			.then((res) => {
-				if (!res) return;
-				const list = res.MRData.StandingsTable.StandingsLists[0];
-				if (list) {
-					setConstructorStandings(list.ConstructorStandings);
-					setConstructorSeason(list.season);
+				if (res) {
+					const list = res.MRData.StandingsTable.StandingsLists[0];
+					if (list) {
+						setConstructorStandings(list.ConstructorStandings);
+						setConstructorSeason(list.season);
+					}
 				}
+				setConstructorLoaded(true);
 			});
 
-		// Fetch schedule via local proxy (avoids exposing server-side API_URL)
+		// Fetch schedule via local proxy; fall back to Jolpica when the Rust service isn't running
+		const tryJolpicaSchedule = () =>
+			cachedFetch<JolpicaScheduleResponse>(`${JOLPICA_BASE}/current/next.json`).then((res) => {
+				const race = res?.MRData.RaceTable.Races[0];
+				if (race) setNextRound(jolpicaRaceToRound(race));
+				setScheduleLoaded(true);
+			});
+
 		fetch("/api/schedule")
 			.then((r) => r.json())
-			.then((data: Round | null) => setNextRound(data))
-			.catch(console.error);
+			.then((data: Round | null) => {
+				if (data) {
+					setNextRound(data);
+					setScheduleLoaded(true);
+				} else {
+					return tryJolpicaSchedule();
+				}
+			})
+			.catch(() => tryJolpicaSchedule());
+
+		cachedFetch<JolpicaLastRaceResponse>(`${JOLPICA_BASE}/current/last/results.json?limit=20`)
+			.then((res) => {
+				if (res) {
+					const race = res.MRData.RaceTable.Races[0];
+					if (race) setLastRace(race);
+				}
+				setLastRaceLoaded(true);
+			});
+
+		cachedFetch<JolpicaQualifyingResponse>(`${JOLPICA_BASE}/current/last/qualifying.json?limit=20`)
+			.then((res) => {
+				if (res) {
+					const results = res.MRData.RaceTable.Races[0]?.QualifyingResults;
+					if (results) setQualifyingResults(results);
+				}
+			});
 	}, []);
 
 	// Auto-cycle with fade transition
@@ -105,7 +195,7 @@ export default function IdleCarousel({ onPreLive }: Props) {
 	const advance = useCallback(() => {
 		setVisible(false);
 		timerRef.current = setTimeout(() => {
-			setActivePanel((p) => (p + 1) % 3);
+			setActivePanel((p) => (p + 1) % 6);
 			setVisible(true);
 		}, 500);
 	}, []);
@@ -128,31 +218,33 @@ export default function IdleCarousel({ onPreLive }: Props) {
 				onPreLive={onPreLive}
 			/>
 
-			{/* Panel indicator dots */}
-			<div className="flex items-center justify-center gap-3">
-				{PANEL_LABELS.map((label, i) => (
-					<button
-						key={label}
-						onClick={() => {
-							if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
-							setVisible(false);
-							clickTimerRef.current = setTimeout(() => {
-								setActivePanel(i);
-								setVisible(true);
-							}, 300);
-						}}
-						className="flex items-center gap-2"
-						aria-label={`Show ${label}`}
-					>
-						<div
-							className={`h-2 rounded-full transition-all duration-300 ${
-								i === activePanel ? "w-8 bg-red-500" : "w-2 bg-zinc-600"
-							}`}
-						/>
-					</button>
-				))}
-				<span className="ml-2 text-sm text-zinc-500">{PANEL_LABELS[activePanel]}</span>
-			</div>
+			{/* Panel indicator dots — hidden in kiosk mode (no mouse to click them) */}
+			{!isKiosk && (
+				<div className="flex items-center justify-center gap-3">
+					{PANEL_LABELS.map((label, i) => (
+						<button
+							key={label}
+							onClick={() => {
+								if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+								setVisible(false);
+								clickTimerRef.current = setTimeout(() => {
+									setActivePanel(i);
+									setVisible(true);
+								}, 300);
+							}}
+							className="flex items-center gap-2"
+							aria-label={`Show ${label}`}
+						>
+							<div
+								className={`h-2 rounded-full transition-all duration-300 ${
+									i === activePanel ? "w-8 bg-red-500" : "w-2 bg-zinc-600"
+								}`}
+							/>
+						</button>
+					))}
+					<span className="ml-2 text-sm text-zinc-500">{PANEL_LABELS[activePanel]}</span>
+				</div>
+			)}
 
 			{/* Carousel panels */}
 			<div
@@ -160,7 +252,9 @@ export default function IdleCarousel({ onPreLive }: Props) {
 				style={{ opacity: visible ? 1 : 0 }}
 			>
 				{activePanel === 0 && (
-					driverStandings !== null ? (
+					!driverLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading standings…</div>
+					) : driverStandings !== null ? (
 						<DriverStandings standings={driverStandings} season={driverSeason} />
 					) : (
 						<div className="flex h-full items-center justify-center text-zinc-500">
@@ -169,7 +263,9 @@ export default function IdleCarousel({ onPreLive }: Props) {
 					)
 				)}
 				{activePanel === 1 && (
-					constructorStandings !== null ? (
+					!constructorLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading standings…</div>
+					) : constructorStandings !== null ? (
 						<ConstructorStandings standings={constructorStandings} season={constructorSeason} />
 					) : (
 						<div className="flex h-full items-center justify-center text-zinc-500">
@@ -177,7 +273,42 @@ export default function IdleCarousel({ onPreLive }: Props) {
 						</div>
 					)
 				)}
-				{activePanel === 2 && <NextRacePanel round={nextRound} />}
+				{activePanel === 2 && (
+					!scheduleLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading schedule…</div>
+					) : (
+						<NextRacePanel round={nextRound} />
+					)
+				)}
+				{activePanel === 3 && (
+					!scheduleLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading schedule…</div>
+					) : (
+						<CircuitSchedulePanel
+						round={nextRound}
+						raceResults={lastRace?.Results ?? null}
+						qualifyingResults={qualifyingResults}
+					/>
+					)
+				)}
+				{activePanel === 4 && (
+					!lastRaceLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading last race…</div>
+					) : (
+						<LastRacePanel race={lastRace} />
+					)
+				)}
+				{activePanel === 5 && (
+					!driverLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading standings…</div>
+					) : driverStandings !== null ? (
+						<DriverSeasonPanel standings={driverStandings} season={driverSeason} />
+					) : (
+						<div className="flex h-full items-center justify-center text-zinc-500">
+							Standings unavailable — will retry when connection is restored
+						</div>
+					)
+				)}
 			</div>
 		</div>
 	);

@@ -48,3 +48,116 @@ export type JolpicaConstructorStandingsResponse = {
 		};
 	};
 };
+
+export type JolpicaResult = {
+	number: string;
+	position: string;
+	positionText: string;
+	points: string;
+	Driver: {
+		driverId: string;
+		permanentNumber: string;
+		code: string;
+		givenName: string;
+		familyName: string;
+	};
+	Constructor: {
+		constructorId: string;
+		name: string;
+	};
+	grid: string;
+	laps: string;
+	status: string;
+	Time?: { millis: string; time: string };
+	FastestLap?: {
+		rank: string;
+		lap: string;
+		Time: { time: string };
+		AverageSpeed: { units: string; speed: string };
+	};
+};
+
+export type JolpicaRace = {
+	season: string;
+	round: string;
+	raceName: string;
+	Circuit: {
+		circuitId: string;
+		circuitName: string;
+		Location: {
+			lat: string;
+			long: string;
+			locality: string;
+			country: string;
+		};
+	};
+	date: string;
+	time?: string;
+	Results: JolpicaResult[];
+};
+
+export type JolpicaQualifyingResult = {
+	number: string;
+	position: string;
+	Driver: {
+		driverId: string;
+		code: string;
+		givenName: string;
+		familyName: string;
+	};
+	Constructor: {
+		constructorId: string;
+		name: string;
+	};
+	Q1?: string;
+	Q2?: string;
+	Q3?: string;
+};
+
+export type JolpicaQualifyingResponse = {
+	MRData: {
+		RaceTable: {
+			Races: {
+				QualifyingResults: JolpicaQualifyingResult[];
+			}[];
+		};
+	};
+};
+
+export type JolpicaLastRaceResponse = {
+	MRData: {
+		RaceTable: {
+			Races: JolpicaRace[];
+		};
+	};
+};
+
+// Next-race schedule endpoint — same shape as race results but without Results array
+type JolpicaScheduleSession = { date: string; time: string };
+
+export type JolpicaScheduleRace = {
+	season: string;
+	round: string;
+	raceName: string;
+	Circuit: {
+		circuitName: string;
+		Location: { locality: string; country: string };
+	};
+	date: string;
+	time?: string;
+	FirstPractice?: JolpicaScheduleSession;
+	SecondPractice?: JolpicaScheduleSession;
+	ThirdPractice?: JolpicaScheduleSession;
+	Qualifying?: JolpicaScheduleSession;
+	Sprint?: JolpicaScheduleSession;
+	SprintQualifying?: JolpicaScheduleSession;
+	SprintShootout?: JolpicaScheduleSession;
+};
+
+export type JolpicaScheduleResponse = {
+	MRData: {
+		RaceTable: {
+			Races: JolpicaScheduleRace[];
+		};
+	};
+};
