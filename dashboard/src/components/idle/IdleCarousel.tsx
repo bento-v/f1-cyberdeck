@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { JolpicaConstructorStanding, JolpicaConstructorStandingsResponse, JolpicaDriverStanding, JolpicaDriverStandingsResponse, JolpicaLastRaceResponse, JolpicaRace } from "@/types/jolpica.type";
-import type { Round } from "@/types/schedule.type";
+import type { JolpicaConstructorStanding, JolpicaConstructorStandingsResponse, JolpicaDriverStanding, JolpicaDriverStandingsResponse, JolpicaLastRaceResponse, JolpicaRace, JolpicaScheduleRace, JolpicaScheduleResponse } from "@/types/jolpica.type";
+import type { Round, Session } from "@/types/schedule.type";
 
 import IdleCountdownBar from "@/components/idle/IdleCountdownBar";
 import DriverStandings from "@/components/idle/DriverStandings";
@@ -54,6 +54,43 @@ async function cachedFetch<T>(url: string): Promise<T | null> {
 }
 
 const isKiosk = process.env.NEXT_PUBLIC_KIOSK === "1";
+
+// Converts a Jolpica next-race response into our Round type so schedule panels
+// work even when the local Rust realtime service isn't running.
+function jolpicaRaceToRound(race: JolpicaScheduleRace): Round {
+	const toISO = (s: { date: string; time: string }) => `${s.date}T${s.time}`;
+	const addMins = (iso: string, mins: number) =>
+		new Date(new Date(iso).getTime() + mins * 60_000).toISOString();
+
+	const sessions: Session[] = [];
+	const push = (kind: string, s: { date: string; time: string } | undefined, durationMins = 60) => {
+		if (!s) return;
+		const start = toISO(s);
+		sessions.push({ kind, start, end: addMins(start, durationMins) });
+	};
+
+	push("Practice 1", race.FirstPractice);
+	push("Practice 2", race.SecondPractice);
+	push("Sprint Qualifying", race.SprintQualifying ?? race.SprintShootout, 45);
+	push("Sprint", race.Sprint, 30);
+	push("Practice 3", race.ThirdPractice);
+	push("Qualifying", race.Qualifying);
+
+	const raceTime = race.time ?? "00:00:00Z";
+	const raceStart = `${race.date}T${raceTime}`;
+	sessions.push({ kind: "Race", start: raceStart, end: addMins(raceStart, 120) });
+	sessions.sort((a, b) => a.start.localeCompare(b.start));
+
+	return {
+		name: race.raceName,
+		countryName: race.Circuit.Location.country,
+		countryKey: null,
+		start: sessions[0]?.start ?? raceStart,
+		end: addMins(raceStart, 120),
+		sessions,
+		over: false,
+	};
+}
 
 type Props = {
 	onPreLive?: () => void;
@@ -112,14 +149,25 @@ export default function IdleCarousel({ onPreLive }: Props) {
 				setConstructorLoaded(true);
 			});
 
-		// Fetch schedule via local proxy (avoids exposing server-side API_URL)
+		// Fetch schedule via local proxy; fall back to Jolpica when the Rust service isn't running
+		const tryJolpicaSchedule = () =>
+			cachedFetch<JolpicaScheduleResponse>(`${JOLPICA_BASE}/current/next.json`).then((res) => {
+				const race = res?.MRData.RaceTable.Races[0];
+				if (race) setNextRound(jolpicaRaceToRound(race));
+				setScheduleLoaded(true);
+			});
+
 		fetch("/api/schedule")
 			.then((r) => r.json())
 			.then((data: Round | null) => {
-				setNextRound(data);
-				setScheduleLoaded(true);
+				if (data) {
+					setNextRound(data);
+					setScheduleLoaded(true);
+				} else {
+					return tryJolpicaSchedule();
+				}
 			})
-			.catch(() => setScheduleLoaded(true));
+			.catch(() => tryJolpicaSchedule());
 
 		cachedFetch<JolpicaLastRaceResponse>(`${JOLPICA_BASE}/current/last/results.json?limit=20`)
 			.then((res) => {

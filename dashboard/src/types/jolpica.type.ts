@@ -103,3 +103,33 @@ export type JolpicaLastRaceResponse = {
 		};
 	};
 };
+
+// Next-race schedule endpoint — same shape as race results but without Results array
+type JolpicaScheduleSession = { date: string; time: string };
+
+export type JolpicaScheduleRace = {
+	season: string;
+	round: string;
+	raceName: string;
+	Circuit: {
+		circuitName: string;
+		Location: { locality: string; country: string };
+	};
+	date: string;
+	time?: string;
+	FirstPractice?: JolpicaScheduleSession;
+	SecondPractice?: JolpicaScheduleSession;
+	ThirdPractice?: JolpicaScheduleSession;
+	Qualifying?: JolpicaScheduleSession;
+	Sprint?: JolpicaScheduleSession;
+	SprintQualifying?: JolpicaScheduleSession;
+	SprintShootout?: JolpicaScheduleSession;
+};
+
+export type JolpicaScheduleResponse = {
+	MRData: {
+		RaceTable: {
+			Races: JolpicaScheduleRace[];
+		};
+	};
+};
