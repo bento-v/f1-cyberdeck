@@ -1,4 +1,4 @@
-// Maps Jolpica/Ergast constructor IDs to 2025 F1 team hex colors (no leading #)
+// Maps Jolpica/Ergast constructor IDs to F1 team hex colors (no leading #)
 const TEAM_COLORS: Record<string, string> = {
 	red_bull: "3671C6",
 	ferrari: "E8002D",
@@ -11,6 +11,9 @@ const TEAM_COLORS: Record<string, string> = {
 	rb: "6692FF",
 	kick_sauber: "52E252",
 	sauber: "52E252",
+	// 2026 new/renamed entries
+	audi: "BB0000",
+	cadillac: "CC4400",
 };
 
 export function getTeamColor(constructorId: string): string {
