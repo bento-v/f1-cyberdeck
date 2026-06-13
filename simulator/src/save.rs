@@ -75,7 +75,7 @@ pub async fn save(path: &Path) -> Result<(), Error> {
         writeln!(writer, "{}", raw_message)?;
         count += 1;
 
-        if count % 100 == 0 {
+        if count.is_multiple_of(100) {
             debug!(count, "Saved messages");
         }
     }

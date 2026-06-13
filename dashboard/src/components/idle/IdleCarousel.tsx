@@ -2,39 +2,71 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { JolpicaConstructorStanding, JolpicaConstructorStandingsResponse, JolpicaDriverStanding, JolpicaDriverStandingsResponse } from "@/types/jolpica.type";
+import type { JolpicaConstructorStanding, JolpicaConstructorStandingsResponse, JolpicaDriverStanding, JolpicaDriverStandingsResponse, JolpicaLastRaceResponse, JolpicaRace } from "@/types/jolpica.type";
 import type { Round } from "@/types/schedule.type";
 
 import IdleCountdownBar from "@/components/idle/IdleCountdownBar";
 import DriverStandings from "@/components/idle/DriverStandings";
 import ConstructorStandings from "@/components/idle/ConstructorStandings";
 import NextRacePanel from "@/components/idle/NextRacePanel";
+import CircuitSchedulePanel from "@/components/idle/CircuitSchedulePanel";
+import LastRacePanel from "@/components/idle/LastRacePanel";
+import DriverSeasonPanel from "@/components/idle/DriverSeasonPanel";
 
 const CYCLE_MS = 15_000;
 const JOLPICA_BASE = "https://api.jolpi.ca/ergast/f1";
 const CACHE_TTL = 3_600_000; // 1 hour
+const ERROR_COOLDOWN_MS = 5 * 60_000; // retry at most every 5 min during outage
 
-type CacheEntry<T> = { data: T; ts: number };
+// errorUntil: timestamp before which we serve stale data and skip live fetches
+type CacheEntry<T> = { data: T; ts: number; errorUntil?: number };
 
-// Module-level cache to survive re-renders without localStorage complexity
+// Module-level cache: survives re-renders and idle↔live transitions without refetching
 const fetchCache = new Map<string, CacheEntry<unknown>>();
 
-async function cachedFetch<T>(url: string): Promise<T> {
+// Returns cached data (fresh or stale) or null on cold-start outage.
+// Never throws — the kiosk must keep showing something.
+async function cachedFetch<T>(url: string): Promise<T | null> {
 	const hit = fetchCache.get(url) as CacheEntry<T> | undefined;
-	if (hit && Date.now() - hit.ts < CACHE_TTL) return hit.data;
+	const now = Date.now();
 
-	const res = await fetch(url);
-	if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-	const data: T = await res.json();
-	fetchCache.set(url, { data, ts: Date.now() });
-	return data;
+	// Fresh cache hit — no network call
+	if (hit && now - hit.ts < CACHE_TTL) return hit.data;
+
+	// Within error cooldown — serve stale data to avoid hammering a down API
+	if (hit?.errorUntil && now < hit.errorUntil) return hit.data;
+
+	try {
+		const res = await fetch(url);
+		if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+		const data: T = await res.json();
+		fetchCache.set(url, { data, ts: now });
+		return data;
+	} catch {
+		if (hit) {
+			// Serve stale data and suppress retries for 5 min
+			fetchCache.set(url, { ...hit, errorUntil: now + ERROR_COOLDOWN_MS });
+			return hit.data;
+		}
+		// Cold-start with API down — signal unavailability without throwing
+		return null;
+	}
 }
+
+const isKiosk = process.env.NEXT_PUBLIC_KIOSK === "1";
 
 type Props = {
 	onPreLive?: () => void;
 };
 
-const PANEL_LABELS = ["Drivers' Championship", "Constructors' Championship", "Next Race Weekend"];
+const PANEL_LABELS = [
+	"Drivers' Championship",
+	"Constructors' Championship",
+	"Next Race Weekend",
+	"Circuit & Schedule",
+	"Last Race Results",
+	"Driver Season Stats",
+];
 
 export default function IdleCarousel({ onPreLive }: Props) {
 	const [activePanel, setActivePanel] = useState(0);
@@ -42,49 +74,71 @@ export default function IdleCarousel({ onPreLive }: Props) {
 
 	const [driverStandings, setDriverStandings] = useState<JolpicaDriverStanding[] | null>(null);
 	const [driverSeason, setDriverSeason] = useState("");
+	const [driverLoaded, setDriverLoaded] = useState(false);
 	const [constructorStandings, setConstructorStandings] = useState<JolpicaConstructorStanding[] | null>(null);
 	const [constructorSeason, setConstructorSeason] = useState("");
+	const [constructorLoaded, setConstructorLoaded] = useState(false);
 	const [nextRound, setNextRound] = useState<Round | null>(null);
+	const [scheduleLoaded, setScheduleLoaded] = useState(false);
+	const [lastRace, setLastRace] = useState<JolpicaRace | null>(null);
+	const [lastRaceLoaded, setLastRaceLoaded] = useState(false);
 
 	// Derive next upcoming session for the countdown bar
 	const nextSession = nextRound?.sessions.find((s) => new Date(s.start) > new Date()) ?? null;
 
-	// Fetch standings once on mount
+	// Fetch standings once on mount (cachedFetch never throws — returns null on outage)
 	useEffect(() => {
 		cachedFetch<JolpicaDriverStandingsResponse>(`${JOLPICA_BASE}/current/driverstandings.json?limit=20`)
 			.then((res) => {
-				const list = res.MRData.StandingsTable.StandingsLists[0];
-				if (list) {
-					setDriverStandings(list.DriverStandings);
-					setDriverSeason(list.season);
+				if (res) {
+					const list = res.MRData.StandingsTable.StandingsLists[0];
+					if (list) {
+						setDriverStandings(list.DriverStandings);
+						setDriverSeason(list.season);
+					}
 				}
-			})
-			.catch(console.error);
+				setDriverLoaded(true);
+			});
 
 		cachedFetch<JolpicaConstructorStandingsResponse>(`${JOLPICA_BASE}/current/constructorstandings.json?limit=10`)
 			.then((res) => {
-				const list = res.MRData.StandingsTable.StandingsLists[0];
-				if (list) {
-					setConstructorStandings(list.ConstructorStandings);
-					setConstructorSeason(list.season);
+				if (res) {
+					const list = res.MRData.StandingsTable.StandingsLists[0];
+					if (list) {
+						setConstructorStandings(list.ConstructorStandings);
+						setConstructorSeason(list.season);
+					}
 				}
-			})
-			.catch(console.error);
+				setConstructorLoaded(true);
+			});
 
 		// Fetch schedule via local proxy (avoids exposing server-side API_URL)
 		fetch("/api/schedule")
 			.then((r) => r.json())
-			.then((data: Round | null) => setNextRound(data))
-			.catch(console.error);
+			.then((data: Round | null) => {
+				setNextRound(data);
+				setScheduleLoaded(true);
+			})
+			.catch(() => setScheduleLoaded(true));
+
+		cachedFetch<JolpicaLastRaceResponse>(`${JOLPICA_BASE}/current/last/results.json?limit=20`)
+			.then((res) => {
+				if (res) {
+					const race = res.MRData.RaceTable.Races[0];
+					if (race) setLastRace(race);
+				}
+				setLastRaceLoaded(true);
+			});
 	}, []);
 
 	// Auto-cycle with fade transition
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const advance = useCallback(() => {
 		setVisible(false);
 		timerRef.current = setTimeout(() => {
-			setActivePanel((p) => (p + 1) % 3);
+			setActivePanel((p) => (p + 1) % 6);
 			setVisible(true);
 		}, 500);
 	}, []);
@@ -94,6 +148,7 @@ export default function IdleCarousel({ onPreLive }: Props) {
 		return () => {
 			clearInterval(interval);
 			if (timerRef.current) clearTimeout(timerRef.current);
+			if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
 		};
 	}, [advance]);
 
@@ -106,30 +161,33 @@ export default function IdleCarousel({ onPreLive }: Props) {
 				onPreLive={onPreLive}
 			/>
 
-			{/* Panel indicator dots */}
-			<div className="flex items-center justify-center gap-3">
-				{PANEL_LABELS.map((label, i) => (
-					<button
-						key={label}
-						onClick={() => {
-							setVisible(false);
-							setTimeout(() => {
-								setActivePanel(i);
-								setVisible(true);
-							}, 300);
-						}}
-						className="flex items-center gap-2"
-						aria-label={`Show ${label}`}
-					>
-						<div
-							className={`h-2 rounded-full transition-all duration-300 ${
-								i === activePanel ? "w-8 bg-red-500" : "w-2 bg-zinc-600"
-							}`}
-						/>
-					</button>
-				))}
-				<span className="ml-2 text-sm text-zinc-500">{PANEL_LABELS[activePanel]}</span>
-			</div>
+			{/* Panel indicator dots — hidden in kiosk mode (no mouse to click them) */}
+			{!isKiosk && (
+				<div className="flex items-center justify-center gap-3">
+					{PANEL_LABELS.map((label, i) => (
+						<button
+							key={label}
+							onClick={() => {
+								if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+								setVisible(false);
+								clickTimerRef.current = setTimeout(() => {
+									setActivePanel(i);
+									setVisible(true);
+								}, 300);
+							}}
+							className="flex items-center gap-2"
+							aria-label={`Show ${label}`}
+						>
+							<div
+								className={`h-2 rounded-full transition-all duration-300 ${
+									i === activePanel ? "w-8 bg-red-500" : "w-2 bg-zinc-600"
+								}`}
+							/>
+						</button>
+					))}
+					<span className="ml-2 text-sm text-zinc-500">{PANEL_LABELS[activePanel]}</span>
+				</div>
+			)}
 
 			{/* Carousel panels */}
 			<div
@@ -137,18 +195,59 @@ export default function IdleCarousel({ onPreLive }: Props) {
 				style={{ opacity: visible ? 1 : 0 }}
 			>
 				{activePanel === 0 && (
-					<DriverStandings
-						standings={driverStandings ?? []}
-						season={driverSeason}
-					/>
+					!driverLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading standings…</div>
+					) : driverStandings !== null ? (
+						<DriverStandings standings={driverStandings} season={driverSeason} />
+					) : (
+						<div className="flex h-full items-center justify-center text-zinc-500">
+							Standings unavailable — will retry when connection is restored
+						</div>
+					)
 				)}
 				{activePanel === 1 && (
-					<ConstructorStandings
-						standings={constructorStandings ?? []}
-						season={constructorSeason}
-					/>
+					!constructorLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading standings…</div>
+					) : constructorStandings !== null ? (
+						<ConstructorStandings standings={constructorStandings} season={constructorSeason} />
+					) : (
+						<div className="flex h-full items-center justify-center text-zinc-500">
+							Standings unavailable — will retry when connection is restored
+						</div>
+					)
 				)}
-				{activePanel === 2 && <NextRacePanel round={nextRound} />}
+				{activePanel === 2 && (
+					!scheduleLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading schedule…</div>
+					) : (
+						<NextRacePanel round={nextRound} />
+					)
+				)}
+				{activePanel === 3 && (
+					!scheduleLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading schedule…</div>
+					) : (
+						<CircuitSchedulePanel round={nextRound} />
+					)
+				)}
+				{activePanel === 4 && (
+					!lastRaceLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading last race…</div>
+					) : (
+						<LastRacePanel race={lastRace} />
+					)
+				)}
+				{activePanel === 5 && (
+					!driverLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading standings…</div>
+					) : driverStandings !== null ? (
+						<DriverSeasonPanel standings={driverStandings} season={driverSeason} />
+					) : (
+						<div className="flex h-full items-center justify-center text-zinc-500">
+							Standings unavailable — will retry when connection is restored
+						</div>
+					)
+				)}
 			</div>
 		</div>
 	);

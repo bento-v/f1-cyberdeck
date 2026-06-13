@@ -81,7 +81,7 @@ fn get_property(event: &IcalEvent, name: &str) -> Option<String> {
     None
 }
 
-fn find_round_mut<'a>(rounds: &'a mut Vec<Round>, name: &str) -> Option<&'a mut Round> {
+fn find_round_mut<'a>(rounds: &'a mut [Round], name: &str) -> Option<&'a mut Round> {
     rounds.iter_mut().find(|r| r.name == name)
 }
 
