@@ -41,7 +41,7 @@ export default function DashboardLayout({ children }: Props) {
 		<div className="flex h-screen w-full md:pt-2 md:pr-2 md:pb-2">
 			{!isKiosk && <Sidebar key="sidebar" connected={connected} />}
 
-			<motion.div layout="size" className="flex h-full w-full flex-1 flex-col md:gap-2">
+			<div className="flex h-full w-full flex-1 flex-col md:gap-2">
 				{!isKiosk && <DesktopStaticBar show={!syncing || ended} />}
 				<MobileStaticBar show={!syncing || ended} connected={connected} />
 
@@ -65,7 +65,7 @@ export default function DashboardLayout({ children }: Props) {
 					<p>Please wait for {delay - maxDelay} seconds.</p>
 					<p>Or make your delay smaller.</p>
 				</div>
-			</motion.div>
+			</div>
 		</div>
 	);
 }

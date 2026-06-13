@@ -12,7 +12,7 @@ type SidebarStore = {
 };
 
 export const useSidebarStore = create<SidebarStore>()((set) => ({
-	pinned: true,
+	pinned: false,
 	opened: false,
 
 	close: () => {
