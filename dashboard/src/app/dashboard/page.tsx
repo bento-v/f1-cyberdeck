@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 
 import { useSessionMode } from "@/hooks/useSessionMode";
 
@@ -17,13 +17,16 @@ export default function Page() {
 	const { isLive } = useSessionMode();
 
 	// Allow the carousel to pre-switch to live layout ~2 min before a session
-	const [preliveTrigger, setPreliveTrigger] = useState(false);
+	const [preliveTrigger, dispatchPrelive] = useReducer(
+		(_: boolean, action: "set" | "reset") => action === "set",
+		false,
+	);
 
-	const handlePreLive = useCallback(() => setPreliveTrigger(true), []);
+	const handlePreLive = useCallback(() => dispatchPrelive("set"), []);
 
 	// Reset pre-live trigger when an actual live session ends
 	useEffect(() => {
-		if (!isLive) setPreliveTrigger(false);
+		if (!isLive) dispatchPrelive("reset");
 	}, [isLive]);
 
 	const showLive = isLive || preliveTrigger;

@@ -1,44 +1,105 @@
 #!/usr/bin/env bash
 # Launches Chromium in kiosk mode pointing at the f1-cyberdeck dashboard.
-# Designed for Raspberry Pi 5 running Raspberry Pi OS (64-bit) with LXDE desktop.
-# Auto-restarts Chromium if it crashes.
+# Targets Raspberry Pi 5 running Raspberry Pi OS Bookworm (64-bit).
+# Pi OS Bookworm defaults to Wayland (labwc) — script auto-detects and sets
+# the correct display, acceleration, and cursor-hide flags for each session type.
+# Auto-restarts Chromium on crash for unattended race-weekend operation.
+#
+# GPU check after launch: navigate to chrome://gpu and confirm:
+#   "Graphics Feature Status" → "Canvas" and "Rasterization" = Hardware accelerated
+#   "Video Decode" = Hardware accelerated (requires libva-drm2 installed)
 
 set -euo pipefail
 
 DASHBOARD_URL="${F1_DASHBOARD_URL:-http://localhost:3000/dashboard}"
 
-# Disable screen blanking and power management
-xset s off
-xset s noblank
-xset -dpms
+# ---------------------------------------------------------------------------
+# Display management — Wayland vs X11
+# ---------------------------------------------------------------------------
+if [ -n "${WAYLAND_DISPLAY:-}" ] || [ "${XDG_SESSION_TYPE:-}" = "wayland" ]; then
+    IS_WAYLAND=1
+else
+    IS_WAYLAND=0
+fi
 
-# Hide the cursor after a short idle period (requires unclutter)
-if command -v unclutter &>/dev/null; then
+if [ "$IS_WAYLAND" -eq 0 ]; then
+    # X11: disable screen blanking and DPMS
+    xset s off
+    xset s noblank
+    xset -dpms
+fi
+
+# Hide cursor after idle period
+# Wayland: wlr-randr or labwc/compositor config is the proper way.
+# Fallback: set cursor to blank via environment (harmless on X11 too).
+export XCURSOR_SIZE=0
+
+# unclutter works under XWayland (when Chromium runs via XWayland) but not pure Wayland.
+# Install hide-cursor (apt install hide-cursor) for native Wayland cursor hiding.
+if [ "$IS_WAYLAND" -eq 0 ] && command -v unclutter &>/dev/null; then
     unclutter -idle 3 -root &
+elif command -v hide-cursor &>/dev/null; then
+    hide-cursor &
+fi
+
+# ---------------------------------------------------------------------------
+# Chromium flags
+# ---------------------------------------------------------------------------
+
+# Common flags for all session types
+COMMON_FLAGS=(
+    --kiosk
+    --window-size=1366,768
+    --window-position=0,0
+    --noerrdialogs
+    --no-first-run
+    --disable-infobars
+    --disable-session-crashed-bubble
+    --disable-restore-session-state
+    --disable-translate
+    --disable-features=TranslateUI
+    --check-for-update-interval=31536000
+    --autoplay-policy=no-user-gesture-required
+    --start-fullscreen
+    # Hardware acceleration — critical for smooth 200ms updates on Pi 5
+    --ignore-gpu-blocklist
+    --enable-gpu-rasterization
+    --enable-zero-copy
+    --enable-features=VaapiVideoDecodeLinuxGL
+)
+
+# Wayland-specific flags — required on Pi OS Bookworm (labwc default)
+WAYLAND_FLAGS=(
+    --ozone-platform=wayland
+    --enable-features=UseOzonePlatform
+)
+
+# X11-specific flags
+X11_FLAGS=(
+    --display=:0
+)
+
+if [ "$IS_WAYLAND" -eq 1 ]; then
+    PLATFORM_FLAGS=("${WAYLAND_FLAGS[@]}")
+else
+    PLATFORM_FLAGS=("${X11_FLAGS[@]}")
 fi
 
 echo "Launching F1 Cyberdeck kiosk → $DASHBOARD_URL"
+echo "Session type: $([ "$IS_WAYLAND" -eq 1 ] && echo 'Wayland' || echo 'X11')"
 
-# Restart loop — Chromium can crash on WebGL/GPU events
+# ---------------------------------------------------------------------------
+# Restart loop — Chromium can crash on GPU/WebGL events; kiosk must self-heal
+# ---------------------------------------------------------------------------
 while true; do
-    # Remove any stale Chromium lock files that prevent restart
+    # Remove stale singleton locks that block restart after a crash
     rm -f "$HOME/.config/chromium/SingletonLock" \
           "$HOME/.config/chromium/SingletonCookie" \
           "$HOME/.config/chromium/SingletonSocket"
 
     chromium-browser \
-        --kiosk \
-        --window-size=1366,768 \
-        --window-position=0,0 \
-        --noerrdialogs \
-        --disable-infobars \
-        --disable-session-crashed-bubble \
-        --disable-restore-session-state \
-        --disable-translate \
-        --disable-features=TranslateUI \
-        --check-for-update-interval=31536000 \
-        --autoplay-policy=no-user-gesture-required \
-        --start-fullscreen \
+        "${COMMON_FLAGS[@]}" \
+        "${PLATFORM_FLAGS[@]}" \
         "$DASHBOARD_URL" || true
 
     echo "Chromium exited — restarting in 3 seconds..."

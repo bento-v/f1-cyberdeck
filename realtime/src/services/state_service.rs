@@ -34,8 +34,31 @@ impl StateService {
     pub async fn update_state(&self, update: Value) -> Result<(), Error> {
         let mut state = self.state.write().await;
         merge(&mut state, update);
+        prune_arrays(&mut state);
         Ok(())
     }
+}
+
+// Keep bounded history for arrays that grow continuously during a race session.
+// Prevents unbounded memory growth in the Rust process over a multi-hour race weekend.
+const MAX_ARRAY_ENTRIES: usize = 50;
+
+fn prune_array_at(state: &mut Value, outer_key: &str, inner_key: &str) {
+    if let Some(arr) = state
+        .get_mut(outer_key)
+        .and_then(|v| v.get_mut(inner_key))
+        .and_then(|v| v.as_array_mut())
+    {
+        let len = arr.len();
+        if len > MAX_ARRAY_ENTRIES {
+            arr.drain(0..len - MAX_ARRAY_ENTRIES);
+        }
+    }
+}
+
+fn prune_arrays(state: &mut Value) {
+    prune_array_at(state, "TeamRadio", "Captures");
+    prune_array_at(state, "RaceControlMessages", "Messages");
 }
 
 pub fn merge(base: &mut Value, update: Value) {

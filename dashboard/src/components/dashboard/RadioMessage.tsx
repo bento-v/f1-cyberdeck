@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { utc } from "moment";
 import clsx from "clsx";
@@ -23,6 +23,14 @@ type Props = {
 export default function RadioMessage({ driver, capture, basePath, gmtOffset }: Props) {
 	const audioRef = useRef<HTMLAudioElement | null>(null);
 	const intervalRef = useRef<NodeJS.Timeout | null>(null);
+	const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	useEffect(() => {
+		return () => {
+			if (intervalRef.current) clearInterval(intervalRef.current);
+			if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
+		};
+	}, []);
 
 	const [playing, setPlaying] = useState<boolean>(false);
 	const [duration, setDuration] = useState<number>(10);
@@ -61,7 +69,8 @@ export default function RadioMessage({ driver, capture, basePath, gmtOffset }: P
 					clearInterval(intervalRef.current);
 				}
 
-				setTimeout(() => {
+				if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
+				pauseTimerRef.current = setTimeout(() => {
 					setProgress(0);
 					audioRef.current?.fastSeek(0);
 				}, 10000);

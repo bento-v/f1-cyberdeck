@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 
-import { useState, useRef, useEffect } from "react";
+import { useReducer, useRef, useEffect } from "react";
 
 import { useSettingsStore } from "@/stores/useSettingsStore";
 
@@ -16,14 +16,20 @@ export default function DelayInput({ className, saveDelay }: Props) {
 	const setDelay = useSettingsStore((s) => s.setDelay);
 	const isPaused = useSettingsStore((s) => s.delayIsPaused);
 
-	const [delayState, setDelayState] = useState<string>(currentDelay.toString());
+	type DelayAction =
+		| { type: "input"; value: string }
+		| { type: "sync"; value: string };
+	const [delayState, dispatchDelay] = useReducer(
+		(_: string, action: DelayAction) => action.value,
+		currentDelay.toString(),
+	);
 
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const updateDelay = (updateInput: boolean = false) => {
 		const delay = delayState ? Math.max(parseInt(delayState), 0) : 0;
 		setDelay(delay);
-		if (updateInput) setDelayState(delay.toString());
+		if (updateInput) dispatchDelay({ type: "sync", value: delay.toString() });
 	};
 
 	useEffect(() => {
@@ -33,18 +39,14 @@ export default function DelayInput({ className, saveDelay }: Props) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [delayState]);
 
+	// Sync display when toggling pause or when an external delay change arrives while paused
 	useEffect(() => {
-		if (!isPaused) setDelayState(currentDelay.toString());
+		dispatchDelay({ type: "sync", value: currentDelay.toString() });
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isPaused]);
-
-	useEffect(() => {
-		if (isPaused) setDelayState(currentDelay.toString());
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [currentDelay]);
+	}, [isPaused, isPaused ? currentDelay : null]);
 
 	const handleChange = (v: string) => {
-		setDelayState(v);
+		dispatchDelay({ type: "input", value: v });
 	};
 
 	return (

@@ -60,16 +60,13 @@ async fn handle_ws(socket: WebSocket, state: Arc<AppState>) {
                 tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
             }
 
-            tx.send(Message::Close(None))
+            tx.send(Message::Close(None)).await
         } => {}
         _ = async {
             while let Some(Ok(msg)) = rx.next().await {
-                match msg {
-                    Message::Close(_) => {
-                        info!("received close");
-                        break;
-                    }
-                    _ => {}
+                if let Message::Close(_) = msg {
+                    info!("received close");
+                    break;
                 }
             }
         } => {}
