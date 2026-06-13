@@ -140,6 +140,7 @@ export type JolpicaScheduleRace = {
 	round: string;
 	raceName: string;
 	Circuit: {
+		circuitId: string;
 		circuitName: string;
 		Location: { locality: string; country: string };
 	};

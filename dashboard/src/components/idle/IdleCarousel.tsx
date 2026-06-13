@@ -12,6 +12,7 @@ import NextRacePanel from "@/components/idle/NextRacePanel";
 import CircuitSchedulePanel from "@/components/idle/CircuitSchedulePanel";
 import LastRacePanel from "@/components/idle/LastRacePanel";
 import DriverSeasonPanel from "@/components/idle/DriverSeasonPanel";
+import TrackMapPanel from "@/components/idle/TrackMapPanel";
 
 const CYCLE_MS = 15_000;
 const JOLPICA_BASE = "https://api.jolpi.ca/ergast/f1";
@@ -103,6 +104,7 @@ const PANEL_LABELS = [
 	"Circuit & Schedule",
 	"Last Race Results",
 	"Driver Season Stats",
+	"Track Map",
 ];
 
 export default function IdleCarousel({ onPreLive }: Props) {
@@ -120,6 +122,8 @@ export default function IdleCarousel({ onPreLive }: Props) {
 	const [lastRace, setLastRace] = useState<JolpicaRace | null>(null);
 	const [lastRaceLoaded, setLastRaceLoaded] = useState(false);
 	const [qualifyingResults, setQualifyingResults] = useState<JolpicaQualifyingResult[] | null>(null);
+	const [nextCircuitId, setNextCircuitId] = useState<string | null>(null);
+	const [nextCircuitName, setNextCircuitName] = useState<string | null>(null);
 
 	// Derive next upcoming session for the countdown bar
 	const nextSession = nextRound?.sessions.find((s) => new Date(s.start) > new Date()) ?? null;
@@ -150,11 +154,16 @@ export default function IdleCarousel({ onPreLive }: Props) {
 				setConstructorLoaded(true);
 			});
 
-		// Fetch schedule via local proxy; fall back to Jolpica when the Rust service isn't running
+		// Fetch schedule via local proxy; fall back to Jolpica when the Rust service isn't running.
+		// Always also fetch from Jolpica to get the circuitId (not available via local proxy).
 		const tryJolpicaSchedule = () =>
 			cachedFetch<JolpicaScheduleResponse>(`${JOLPICA_BASE}/current/next.json`).then((res) => {
 				const race = res?.MRData.RaceTable.Races[0];
-				if (race) setNextRound(jolpicaRaceToRound(race));
+				if (race) {
+					setNextRound(jolpicaRaceToRound(race));
+					setNextCircuitId(race.Circuit.circuitId);
+					setNextCircuitName(race.Circuit.circuitName);
+				}
 				setScheduleLoaded(true);
 			});
 
@@ -169,6 +178,15 @@ export default function IdleCarousel({ onPreLive }: Props) {
 				}
 			})
 			.catch(() => tryJolpicaSchedule());
+
+		// Always fetch Jolpica schedule separately to get circuitId for track map
+		cachedFetch<JolpicaScheduleResponse>(`${JOLPICA_BASE}/current/next.json`).then((res) => {
+			const race = res?.MRData.RaceTable.Races[0];
+			if (race) {
+				setNextCircuitId(race.Circuit.circuitId);
+				setNextCircuitName(race.Circuit.circuitName);
+			}
+		});
 
 		cachedFetch<JolpicaLastRaceResponse>(`${JOLPICA_BASE}/current/last/results.json?limit=20`)
 			.then((res) => {
@@ -195,7 +213,7 @@ export default function IdleCarousel({ onPreLive }: Props) {
 	const advance = useCallback(() => {
 		setVisible(false);
 		timerRef.current = setTimeout(() => {
-			setActivePanel((p) => (p + 1) % 6);
+			setActivePanel((p) => (p + 1) % 7);
 			setVisible(true);
 		}, 500);
 	}, []);
@@ -308,6 +326,13 @@ export default function IdleCarousel({ onPreLive }: Props) {
 							Standings unavailable — will retry when connection is restored
 						</div>
 					)
+				)}
+				{activePanel === 6 && (
+					<TrackMapPanel
+						circuitId={nextCircuitId ?? lastRace?.Circuit.circuitId ?? null}
+						circuitName={nextCircuitName ?? lastRace?.Circuit.circuitName ?? null}
+						countryName={nextRound?.countryName ?? lastRace?.Circuit.Location.country ?? null}
+					/>
 				)}
 			</div>
 		</div>
