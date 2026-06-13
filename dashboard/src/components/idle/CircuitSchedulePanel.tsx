@@ -1,10 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Round } from "@/types/schedule.type";
 import type { JolpicaResult, JolpicaQualifyingResult } from "@/types/jolpica.type";
 import { getTeamColor } from "@/lib/teamColors";
+
+const isKiosk = process.env.NEXT_PUBLIC_KIOSK === "1";
+
+// How long each dropdown stays open before closing (ms)
+const KIOSK_VIEW_MS = 4_500;
+// Animation duration + buffer before opening the next dropdown (ms)
+const KIOSK_ANIM_MS = 350;
+// Gap between close of one and open of next (ms)
+const KIOSK_GAP_MS = 400;
+// Initial pause before the first dropdown opens (ms)
+const KIOSK_INITIAL_MS = 900;
 
 function sessionDotColor(kind: string): string {
 	const k = kind.toLowerCase();
@@ -77,6 +88,39 @@ type Props = {
 
 export default function CircuitSchedulePanel({ round, raceResults, qualifyingResults }: Props) {
 	const [expanded, setExpanded] = useState<string | null>(null);
+	const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+	// Kiosk: automatically open each result dropdown in sequence, one at a time.
+	// Runs once per mount (each carousel cycle remounts this panel).
+	useEffect(() => {
+		if (!isKiosk || !round) return;
+
+		const expandable = round.sessions
+			.filter((s) => {
+				if (!hasResults(s.kind)) return false;
+				const k = s.kind.toLowerCase();
+				return k === "race" ? !!raceResults?.length : !!qualifyingResults?.length;
+			})
+			.map((s) => s.kind);
+
+		if (expandable.length === 0) return;
+
+		const timers: ReturnType<typeof setTimeout>[] = [];
+		let t = KIOSK_INITIAL_MS;
+
+		expandable.forEach((kind, i) => {
+			// Open this dropdown
+			timers.push(setTimeout(() => setExpanded(kind), t));
+			t += KIOSK_ANIM_MS + KIOSK_VIEW_MS;
+			// Close it — wait for animation before opening the next
+			timers.push(setTimeout(() => setExpanded(null), t));
+			t += KIOSK_ANIM_MS;
+			if (i < expandable.length - 1) t += KIOSK_GAP_MS;
+		});
+
+		timersRef.current = timers;
+		return () => timers.forEach(clearTimeout);
+	}, [round, raceResults, qualifyingResults]);
 
 	if (!round) {
 		return (
@@ -89,6 +133,9 @@ export default function CircuitSchedulePanel({ round, raceResults, qualifyingRes
 	const now = new Date();
 
 	function toggle(key: string) {
+		// Manual click: cancel the auto-cycle timers so they don't fight the user
+		timersRef.current.forEach(clearTimeout);
+		timersRef.current = [];
 		setExpanded((prev) => (prev === key ? null : key));
 	}
 

@@ -39,10 +39,10 @@ export default function DashboardLayout({ children }: Props) {
 
 	return (
 		<div className="flex h-screen w-full md:pt-2 md:pr-2 md:pb-2">
-			<Sidebar key="sidebar" connected={connected} />
+			{!isKiosk && <Sidebar key="sidebar" connected={connected} />}
 
 			<motion.div layout="size" className="flex h-full w-full flex-1 flex-col md:gap-2">
-				<DesktopStaticBar show={!syncing || ended} />
+				{!isKiosk && <DesktopStaticBar show={!syncing || ended} />}
 				<MobileStaticBar show={!syncing || ended} connected={connected} />
 
 				<div
