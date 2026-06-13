@@ -83,16 +83,18 @@ function MobileDynamicBar() {
 	);
 }
 
+const isKiosk = process.env.NEXT_PUBLIC_KIOSK === "1";
+
 function MobileStaticBar({ show, connected }: { show: boolean; connected: boolean }) {
 	const open = useSidebarStore((state) => state.open);
 
 	return (
 		<div className="flex w-full items-center justify-between overflow-hidden border-b border-zinc-800 p-2 md:hidden">
 			<div className="flex items-center gap-2">
-				<SidenavButton key="mobile" onClick={() => open()} />
+				{!isKiosk && <SidenavButton key="mobile" onClick={() => open()} />}
 
-				<DelayInput saveDelay={500} />
-				<DelayTimer />
+				{!isKiosk && <DelayInput saveDelay={500} />}
+				{!isKiosk && <DelayTimer />}
 
 				<ConnectionStatus connected={connected} />
 			</div>
@@ -110,7 +112,7 @@ function DesktopStaticBar({ show }: { show: boolean }) {
 		<div className="hidden w-full flex-row justify-between overflow-hidden rounded-lg border border-zinc-800 p-2 md:flex">
 			<div className="flex items-center gap-2">
 				<AnimatePresence>
-					{!pinned && <SidenavButton key="desktop" className="shrink-0" onClick={() => pin()} />}
+					{!isKiosk && !pinned && <SidenavButton key="desktop" className="shrink-0" onClick={() => pin()} />}
 
 					<motion.div key="session-info" layout="position">
 						<SessionInfo />
