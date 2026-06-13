@@ -2,13 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { JolpicaConstructorStanding, JolpicaConstructorStandingsResponse, JolpicaDriverStanding, JolpicaDriverStandingsResponse } from "@/types/jolpica.type";
+import type { JolpicaConstructorStanding, JolpicaConstructorStandingsResponse, JolpicaDriverStanding, JolpicaDriverStandingsResponse, JolpicaLastRaceResponse, JolpicaRace } from "@/types/jolpica.type";
 import type { Round } from "@/types/schedule.type";
 
 import IdleCountdownBar from "@/components/idle/IdleCountdownBar";
 import DriverStandings from "@/components/idle/DriverStandings";
 import ConstructorStandings from "@/components/idle/ConstructorStandings";
 import NextRacePanel from "@/components/idle/NextRacePanel";
+import CircuitSchedulePanel from "@/components/idle/CircuitSchedulePanel";
+import LastRacePanel from "@/components/idle/LastRacePanel";
+import DriverSeasonPanel from "@/components/idle/DriverSeasonPanel";
 
 const CYCLE_MS = 15_000;
 const JOLPICA_BASE = "https://api.jolpi.ca/ergast/f1";
@@ -56,7 +59,14 @@ type Props = {
 	onPreLive?: () => void;
 };
 
-const PANEL_LABELS = ["Drivers' Championship", "Constructors' Championship", "Next Race Weekend"];
+const PANEL_LABELS = [
+	"Drivers' Championship",
+	"Constructors' Championship",
+	"Next Race Weekend",
+	"Circuit & Schedule",
+	"Last Race Results",
+	"Driver Season Stats",
+];
 
 export default function IdleCarousel({ onPreLive }: Props) {
 	const [activePanel, setActivePanel] = useState(0);
@@ -70,6 +80,8 @@ export default function IdleCarousel({ onPreLive }: Props) {
 	const [constructorLoaded, setConstructorLoaded] = useState(false);
 	const [nextRound, setNextRound] = useState<Round | null>(null);
 	const [scheduleLoaded, setScheduleLoaded] = useState(false);
+	const [lastRace, setLastRace] = useState<JolpicaRace | null>(null);
+	const [lastRaceLoaded, setLastRaceLoaded] = useState(false);
 
 	// Derive next upcoming session for the countdown bar
 	const nextSession = nextRound?.sessions.find((s) => new Date(s.start) > new Date()) ?? null;
@@ -108,6 +120,15 @@ export default function IdleCarousel({ onPreLive }: Props) {
 				setScheduleLoaded(true);
 			})
 			.catch(() => setScheduleLoaded(true));
+
+		cachedFetch<JolpicaLastRaceResponse>(`${JOLPICA_BASE}/current/last/results.json?limit=20`)
+			.then((res) => {
+				if (res) {
+					const race = res.MRData.RaceTable.Races[0];
+					if (race) setLastRace(race);
+				}
+				setLastRaceLoaded(true);
+			});
 	}, []);
 
 	// Auto-cycle with fade transition
@@ -117,7 +138,7 @@ export default function IdleCarousel({ onPreLive }: Props) {
 	const advance = useCallback(() => {
 		setVisible(false);
 		timerRef.current = setTimeout(() => {
-			setActivePanel((p) => (p + 1) % 3);
+			setActivePanel((p) => (p + 1) % 6);
 			setVisible(true);
 		}, 500);
 	}, []);
@@ -200,6 +221,31 @@ export default function IdleCarousel({ onPreLive }: Props) {
 						<div className="flex h-full items-center justify-center text-zinc-500">Loading schedule…</div>
 					) : (
 						<NextRacePanel round={nextRound} />
+					)
+				)}
+				{activePanel === 3 && (
+					!scheduleLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading schedule…</div>
+					) : (
+						<CircuitSchedulePanel round={nextRound} />
+					)
+				)}
+				{activePanel === 4 && (
+					!lastRaceLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading last race…</div>
+					) : (
+						<LastRacePanel race={lastRace} />
+					)
+				)}
+				{activePanel === 5 && (
+					!driverLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading standings…</div>
+					) : driverStandings !== null ? (
+						<DriverSeasonPanel standings={driverStandings} season={driverSeason} />
+					) : (
+						<div className="flex h-full items-center justify-center text-zinc-500">
+							Standings unavailable — will retry when connection is restored
+						</div>
 					)
 				)}
 			</div>

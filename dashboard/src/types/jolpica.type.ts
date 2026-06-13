@@ -48,3 +48,58 @@ export type JolpicaConstructorStandingsResponse = {
 		};
 	};
 };
+
+export type JolpicaResult = {
+	number: string;
+	position: string;
+	positionText: string;
+	points: string;
+	Driver: {
+		driverId: string;
+		permanentNumber: string;
+		code: string;
+		givenName: string;
+		familyName: string;
+	};
+	Constructor: {
+		constructorId: string;
+		name: string;
+	};
+	grid: string;
+	laps: string;
+	status: string;
+	Time?: { millis: string; time: string };
+	FastestLap?: {
+		rank: string;
+		lap: string;
+		Time: { time: string };
+		AverageSpeed: { units: string; speed: string };
+	};
+};
+
+export type JolpicaRace = {
+	season: string;
+	round: string;
+	raceName: string;
+	Circuit: {
+		circuitId: string;
+		circuitName: string;
+		Location: {
+			lat: string;
+			long: string;
+			locality: string;
+			country: string;
+		};
+	};
+	date: string;
+	time?: string;
+	Results: JolpicaResult[];
+};
+
+export type JolpicaLastRaceResponse = {
+	MRData: {
+		RaceTable: {
+			Races: JolpicaRace[];
+		};
+	};
+};
