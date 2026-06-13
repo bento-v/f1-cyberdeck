@@ -50,6 +50,8 @@ async function cachedFetch<T>(url: string): Promise<T | null> {
 	}
 }
 
+const isKiosk = process.env.NEXT_PUBLIC_KIOSK === "1";
+
 type Props = {
 	onPreLive?: () => void;
 };
@@ -62,9 +64,12 @@ export default function IdleCarousel({ onPreLive }: Props) {
 
 	const [driverStandings, setDriverStandings] = useState<JolpicaDriverStanding[] | null>(null);
 	const [driverSeason, setDriverSeason] = useState("");
+	const [driverLoaded, setDriverLoaded] = useState(false);
 	const [constructorStandings, setConstructorStandings] = useState<JolpicaConstructorStanding[] | null>(null);
 	const [constructorSeason, setConstructorSeason] = useState("");
+	const [constructorLoaded, setConstructorLoaded] = useState(false);
 	const [nextRound, setNextRound] = useState<Round | null>(null);
+	const [scheduleLoaded, setScheduleLoaded] = useState(false);
 
 	// Derive next upcoming session for the countdown bar
 	const nextSession = nextRound?.sessions.find((s) => new Date(s.start) > new Date()) ?? null;
@@ -73,29 +78,36 @@ export default function IdleCarousel({ onPreLive }: Props) {
 	useEffect(() => {
 		cachedFetch<JolpicaDriverStandingsResponse>(`${JOLPICA_BASE}/current/driverstandings.json?limit=20`)
 			.then((res) => {
-				if (!res) return; // cold-start outage — keep null to show placeholder
-				const list = res.MRData.StandingsTable.StandingsLists[0];
-				if (list) {
-					setDriverStandings(list.DriverStandings);
-					setDriverSeason(list.season);
+				if (res) {
+					const list = res.MRData.StandingsTable.StandingsLists[0];
+					if (list) {
+						setDriverStandings(list.DriverStandings);
+						setDriverSeason(list.season);
+					}
 				}
+				setDriverLoaded(true);
 			});
 
 		cachedFetch<JolpicaConstructorStandingsResponse>(`${JOLPICA_BASE}/current/constructorstandings.json?limit=10`)
 			.then((res) => {
-				if (!res) return;
-				const list = res.MRData.StandingsTable.StandingsLists[0];
-				if (list) {
-					setConstructorStandings(list.ConstructorStandings);
-					setConstructorSeason(list.season);
+				if (res) {
+					const list = res.MRData.StandingsTable.StandingsLists[0];
+					if (list) {
+						setConstructorStandings(list.ConstructorStandings);
+						setConstructorSeason(list.season);
+					}
 				}
+				setConstructorLoaded(true);
 			});
 
 		// Fetch schedule via local proxy (avoids exposing server-side API_URL)
 		fetch("/api/schedule")
 			.then((r) => r.json())
-			.then((data: Round | null) => setNextRound(data))
-			.catch(console.error);
+			.then((data: Round | null) => {
+				setNextRound(data);
+				setScheduleLoaded(true);
+			})
+			.catch(() => setScheduleLoaded(true));
 	}, []);
 
 	// Auto-cycle with fade transition
@@ -128,31 +140,33 @@ export default function IdleCarousel({ onPreLive }: Props) {
 				onPreLive={onPreLive}
 			/>
 
-			{/* Panel indicator dots */}
-			<div className="flex items-center justify-center gap-3">
-				{PANEL_LABELS.map((label, i) => (
-					<button
-						key={label}
-						onClick={() => {
-							if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
-							setVisible(false);
-							clickTimerRef.current = setTimeout(() => {
-								setActivePanel(i);
-								setVisible(true);
-							}, 300);
-						}}
-						className="flex items-center gap-2"
-						aria-label={`Show ${label}`}
-					>
-						<div
-							className={`h-2 rounded-full transition-all duration-300 ${
-								i === activePanel ? "w-8 bg-red-500" : "w-2 bg-zinc-600"
-							}`}
-						/>
-					</button>
-				))}
-				<span className="ml-2 text-sm text-zinc-500">{PANEL_LABELS[activePanel]}</span>
-			</div>
+			{/* Panel indicator dots — hidden in kiosk mode (no mouse to click them) */}
+			{!isKiosk && (
+				<div className="flex items-center justify-center gap-3">
+					{PANEL_LABELS.map((label, i) => (
+						<button
+							key={label}
+							onClick={() => {
+								if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+								setVisible(false);
+								clickTimerRef.current = setTimeout(() => {
+									setActivePanel(i);
+									setVisible(true);
+								}, 300);
+							}}
+							className="flex items-center gap-2"
+							aria-label={`Show ${label}`}
+						>
+							<div
+								className={`h-2 rounded-full transition-all duration-300 ${
+									i === activePanel ? "w-8 bg-red-500" : "w-2 bg-zinc-600"
+								}`}
+							/>
+						</button>
+					))}
+					<span className="ml-2 text-sm text-zinc-500">{PANEL_LABELS[activePanel]}</span>
+				</div>
+			)}
 
 			{/* Carousel panels */}
 			<div
@@ -160,7 +174,9 @@ export default function IdleCarousel({ onPreLive }: Props) {
 				style={{ opacity: visible ? 1 : 0 }}
 			>
 				{activePanel === 0 && (
-					driverStandings !== null ? (
+					!driverLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading standings…</div>
+					) : driverStandings !== null ? (
 						<DriverStandings standings={driverStandings} season={driverSeason} />
 					) : (
 						<div className="flex h-full items-center justify-center text-zinc-500">
@@ -169,7 +185,9 @@ export default function IdleCarousel({ onPreLive }: Props) {
 					)
 				)}
 				{activePanel === 1 && (
-					constructorStandings !== null ? (
+					!constructorLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading standings…</div>
+					) : constructorStandings !== null ? (
 						<ConstructorStandings standings={constructorStandings} season={constructorSeason} />
 					) : (
 						<div className="flex h-full items-center justify-center text-zinc-500">
@@ -177,7 +195,13 @@ export default function IdleCarousel({ onPreLive }: Props) {
 						</div>
 					)
 				)}
-				{activePanel === 2 && <NextRacePanel round={nextRound} />}
+				{activePanel === 2 && (
+					!scheduleLoaded ? (
+						<div className="flex h-full items-center justify-center text-zinc-500">Loading schedule…</div>
+					) : (
+						<NextRacePanel round={nextRound} />
+					)
+				)}
 			</div>
 		</div>
 	);
