@@ -37,3 +37,25 @@
 		opacity: 0;
 	}
 }
+
+.animate-fastest-lap-flash {
+	animation: fastest-lap-flash 2.5s ease-out forwards;
+}
+
+@keyframes fastest-lap-flash {
+	0% {
+		opacity: 0.85;
+	}
+	15% {
+		opacity: 0.5;
+	}
+	30% {
+		opacity: 0.85;
+	}
+	50% {
+		opacity: 0.4;
+	}
+	100% {
+		opacity: 0;
+	}
+}
