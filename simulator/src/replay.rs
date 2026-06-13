@@ -22,7 +22,7 @@ pub async fn replay(path: &Path) -> Result<(), Error> {
 
     let lines = buffer
         .lines()
-        .filter_map(|line| line.ok())
+        .map_while(Result::ok)
         .collect::<Vec<String>>();
 
     server::run(lines).await

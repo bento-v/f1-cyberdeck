@@ -125,7 +125,7 @@ pub async fn create_client(base_url: &str, _hub: &str) -> Result<SignalrClient, 
 
     match &handshake_response {
         Message::Text(txt) => {
-            let msg = deserialize::<Value>(&txt);
+            let msg = deserialize::<Value>(txt);
 
             match msg {
                 Ok(parsed) => {
