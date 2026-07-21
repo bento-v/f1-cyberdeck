@@ -24,14 +24,14 @@ Real GPS car positions, live timing, tyre stints, gaps, and race-control message
 corner toasts. Pitting cars are tagged on the map and the pit lane is learned from live GPS.
 
 <p align="center">
-  <img alt="Live race" src="./docs/live-race-normal.gif" width="800">
+  <img alt="Live race" src="./docs/live-race.gif" width="800">
 </p>
 
 Safety Car, Virtual Safety Car, and red-flag periods glow the whole screen edge — yellow for
 SC/VSC, red for a red flag — so the track state is readable from across the room.
 
 <p align="center">
-  <img alt="Virtual Safety Car" src="./docs/live-race-vsc.gif" width="800">
+  <img alt="Virtual Safety Car" src="./docs/live-vsc-border.png" width="800">
 </p>
 
 ## Post-race summary
