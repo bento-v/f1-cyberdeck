@@ -128,6 +128,15 @@ export const useDataEngine = ({ updateState, updatePosition, updateCarData }: Pr
 
 			const posFrame = posBuffer.latest();
 			if (posFrame) updatePosition(posFrame);
+
+			// With no delay the buffered history is never read, but frames still
+			// accumulate — trim them or a multi-hour session slowly eats the Pi's RAM
+			const now = Date.now();
+			setTimeout(() => {
+				Object.values(buffers).forEach((buffer) => buffer.cleanup(now));
+				carBuffer.cleanup(now);
+				posBuffer.cleanup(now);
+			}, 0);
 		} else {
 			const delayedTimestamp = Date.now() - delay * 1000;
 			const newStateFrame: Record<string, State[keyof State]> = {};

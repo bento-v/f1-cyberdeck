@@ -124,6 +124,16 @@ export type JolpicaQualifyingResponse = {
 	};
 };
 
+export type JolpicaSprintResponse = {
+	MRData: {
+		RaceTable: {
+			Races: {
+				SprintResults: JolpicaResult[];
+			}[];
+		};
+	};
+};
+
 export type JolpicaLastRaceResponse = {
 	MRData: {
 		RaceTable: {
@@ -142,7 +152,7 @@ export type JolpicaScheduleRace = {
 	Circuit: {
 		circuitId: string;
 		circuitName: string;
-		Location: { locality: string; country: string };
+		Location: { locality: string; country: string; lat?: string; long?: string };
 	};
 	date: string;
 	time?: string;

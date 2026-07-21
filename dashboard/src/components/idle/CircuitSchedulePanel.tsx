@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Round } from "@/types/schedule.type";
 import type { JolpicaResult, JolpicaQualifyingResult } from "@/types/jolpica.type";
@@ -10,8 +10,6 @@ const isKiosk = process.env.NEXT_PUBLIC_KIOSK === "1";
 
 // How long each dropdown stays open before closing (ms)
 const KIOSK_VIEW_MS = 4_500;
-// Animation duration + buffer before opening the next dropdown (ms)
-const KIOSK_ANIM_MS = 350;
 // Gap between close of one and open of next (ms)
 const KIOSK_GAP_MS = 400;
 // Initial pause before the first dropdown opens (ms)
@@ -27,7 +25,7 @@ function sessionDotColor(kind: string): string {
 
 function hasResults(kind: string): boolean {
 	const k = kind.toLowerCase();
-	return k === "race" || k === "qualifying";
+	return k === "race" || k === "qualifying" || k === "sprint";
 }
 
 function RaceResultsList({ results }: { results: JolpicaResult[] }) {
@@ -84,43 +82,63 @@ type Props = {
 	round: Round | null;
 	raceResults: JolpicaResult[] | null;
 	qualifyingResults: JolpicaQualifyingResult[] | null;
+	sprintResults: JolpicaResult[] | null;
 };
 
-export default function CircuitSchedulePanel({ round, raceResults, qualifyingResults }: Props) {
+export default function CircuitSchedulePanel({ round, raceResults, qualifyingResults, sprintResults }: Props) {
 	const [expanded, setExpanded] = useState<string | null>(null);
-	const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-	// Kiosk: automatically open each result dropdown in sequence, one at a time.
-	// Runs once per mount (each carousel cycle remounts this panel).
-	useEffect(() => {
-		if (!isKiosk || !round) return;
-
-		const expandable = round.sessions
+	// Sessions that currently have results to reveal, in schedule order.
+	const expandableKinds = useMemo(() => {
+		if (!round) return [];
+		return round.sessions
 			.filter((s) => {
 				if (!hasResults(s.kind)) return false;
 				const k = s.kind.toLowerCase();
-				return k === "race" ? !!raceResults?.length : !!qualifyingResults?.length;
+				if (k === "race") return !!raceResults?.length;
+				if (k === "sprint") return !!sprintResults?.length;
+				return !!qualifyingResults?.length;
 			})
 			.map((s) => s.kind);
+	}, [round, raceResults, qualifyingResults, sprintResults]);
 
-		if (expandable.length === 0) return;
+	// Stable signal: only changes when the *set* of available results changes,
+	// not on every prop identity change.
+	const kindsKey = expandableKinds.join("|");
 
-		const timers: ReturnType<typeof setTimeout>[] = [];
-		let t = KIOSK_INITIAL_MS;
+	// Kiosk: auto-cycle the result dropdowns. Timers and their cleanup live in the
+	// SAME effect so the sequence survives React StrictMode's mount→unmount→remount
+	// in dev and the carousel's per-cycle remount in production. It loops through
+	// the available results to fill the panel's on-screen window, and restarts
+	// cleanly if results arrive after first render (kindsKey changes).
+	useEffect(() => {
+		if (!isKiosk || expandableKinds.length === 0) return;
 
-		expandable.forEach((kind, i) => {
-			// Open this dropdown
-			timers.push(setTimeout(() => setExpanded(kind), t));
-			t += KIOSK_ANIM_MS + KIOSK_VIEW_MS;
-			// Close it — wait for animation before opening the next
-			timers.push(setTimeout(() => setExpanded(null), t));
-			t += KIOSK_ANIM_MS;
-			if (i < expandable.length - 1) t += KIOSK_GAP_MS;
-		});
+		let cancelled = false;
+		let timer: ReturnType<typeof setTimeout>;
+		let i = 0;
 
-		timersRef.current = timers;
-		return () => timers.forEach(clearTimeout);
-	}, [round, raceResults, qualifyingResults]);
+		const open = () => {
+			if (cancelled) return;
+			setExpanded(expandableKinds[i % expandableKinds.length]);
+			timer = setTimeout(close, KIOSK_VIEW_MS);
+		};
+		const close = () => {
+			if (cancelled) return;
+			setExpanded(null);
+			i += 1;
+			timer = setTimeout(open, KIOSK_GAP_MS);
+		};
+
+		timer = setTimeout(open, KIOSK_INITIAL_MS);
+
+		return () => {
+			cancelled = true;
+			clearTimeout(timer);
+			setExpanded(null);
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [kindsKey]);
 
 	if (!round) {
 		return (
@@ -133,9 +151,6 @@ export default function CircuitSchedulePanel({ round, raceResults, qualifyingRes
 	const now = new Date();
 
 	function toggle(key: string) {
-		// Manual click: cancel the auto-cycle timers so they don't fight the user
-		timersRef.current.forEach(clearTimeout);
-		timersRef.current = [];
 		setExpanded((prev) => (prev === key ? null : key));
 	}
 
@@ -152,7 +167,11 @@ export default function CircuitSchedulePanel({ round, raceResults, qualifyingRes
 					const start = new Date(session.start);
 					const isPast = start < now;
 					const expandable = hasResults(session.kind);
-					const resultsData = session.kind.toLowerCase() === "race" ? raceResults : qualifyingResults;
+					const k = session.kind.toLowerCase();
+					const resultsData =
+						k === "race" ? raceResults :
+						k === "sprint" ? sprintResults :
+						qualifyingResults;
 					const isOpen = expanded === session.kind && expandable && !!resultsData;
 
 					return (
@@ -201,10 +220,13 @@ export default function CircuitSchedulePanel({ round, raceResults, qualifyingRes
 										transition={{ duration: 0.25, ease: "easeInOut" }}
 										className="overflow-hidden rounded-b-lg border border-t-0 border-zinc-700 bg-zinc-800/60"
 									>
-										{session.kind.toLowerCase() === "race" && raceResults && (
+										{k === "race" && raceResults && (
 											<RaceResultsList results={raceResults} />
 										)}
-										{session.kind.toLowerCase() === "qualifying" && qualifyingResults && (
+										{k === "sprint" && sprintResults && (
+											<RaceResultsList results={sprintResults} />
+										)}
+										{k === "qualifying" && qualifyingResults && (
 											<QualifyingResultsList results={qualifyingResults} />
 										)}
 									</motion.div>

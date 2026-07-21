@@ -9,11 +9,15 @@ type Fns = {
 };
 
 export const useStores = (): Fns => {
-	const dataStore = useDataStore();
+	// Select the (stable) setters only — subscribing to the whole store would
+	// re-render the layout on every 200ms data tick during live sessions
+	const setState = useDataStore((store) => store.setState);
+	const setPositions = useDataStore((store) => store.setPositions);
+	const setCarsData = useDataStore((store) => store.setCarsData);
 
 	return {
-		updateState: (v) => dataStore.setState(v),
-		updatePosition: (v) => dataStore.setPositions(v),
-		updateCarData: (v) => dataStore.setCarsData(v),
+		updateState: setState,
+		updatePosition: setPositions,
+		updateCarData: setCarsData,
 	};
 };

@@ -17,7 +17,7 @@ export default function DriverStandings({ standings, season }: Props) {
 			</h2>
 
 			<div className="grid grid-cols-2 gap-x-8 gap-y-1">
-				{standings.slice(0, 20).map((entry) => {
+				{standings.map((entry) => {
 					const teamColor = getTeamColor(entry.Constructors[0]?.constructorId ?? "");
 					return (
 						<div

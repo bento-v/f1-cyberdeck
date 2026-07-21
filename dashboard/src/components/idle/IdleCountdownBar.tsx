@@ -16,12 +16,20 @@ type Props = {
 export default function IdleCountdownBar({ nextSession, roundName, onPreLive }: Props) {
 	const [[days, hours, minutes, seconds], setParts] = useState<Parts>([null, null, null, null]);
 	const preLiveFiredRef = useRef(false);
-	const rafRef = useRef<number | null>(null);
 
+	// A 1s interval is enough — the display is whole seconds. Using setInterval
+	// instead of requestAnimationFrame avoids waking the main thread 60×/sec, which
+	// matters on the unattended Raspberry Pi kiosk.
+	// Keyed on the start TIME — the session object is a fresh identity on every
+	// parent render, which would rebuild the interval each render.
+	const startIso = nextSession?.start ?? null;
 	useEffect(() => {
-		if (!nextSession) return;
+		if (!startIso) return;
 
-		const target = utc(nextSession.start);
+		// New session target — allow the pre-live trigger to fire again for it
+		preLiveFiredRef.current = false;
+
+		const target = utc(startIso);
 
 		const tick = () => {
 			const diff = duration(target.diff(now()));
@@ -42,21 +50,18 @@ export default function IdleCountdownBar({ nextSession, roundName, onPreLive }: 
 					onPreLive?.();
 				}
 			}
-
-			rafRef.current = requestAnimationFrame(tick);
 		};
 
-		rafRef.current = requestAnimationFrame(tick);
-		return () => {
-			if (rafRef.current) cancelAnimationFrame(rafRef.current);
-		};
-	}, [nextSession, onPreLive]);
+		tick();
+		const iv = setInterval(tick, 1000);
+		return () => clearInterval(iv);
+	}, [startIso, onPreLive]);
 
 	const sessionLabel = nextSession?.kind ?? "session";
 	const hasData = days !== null;
 
 	return (
-		<div className="flex w-full items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 px-6 py-4">
+		<div data-testid="idle-countdown-bar" className="flex w-full items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 px-6 py-4">
 			<div>
 				{roundName && <p className="text-sm text-zinc-500">{roundName}</p>}
 				<p className="text-2xl font-bold">
