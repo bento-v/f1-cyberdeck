@@ -66,7 +66,7 @@ gracefully when an upstream API is unreachable — the kiosk always shows *somet
 | Styling / animation | Tailwind CSS v4, Motion |
 | Live data | SSE from a local Rust `realtime` service (F1 SignalR → SSE proxy) |
 | Schedule / results | [Jolpica](https://api.jolpi.ca) (Ergast-compatible) |
-| Track maps | [MultiViewer](https://api.multiviewer.app) circuit API |
+| Track maps | [MultiViewer](https://multiviewer.app) circuit API |
 | Weather | [Open-Meteo](https://open-meteo.com) |
 | Kiosk | Chromium on Raspberry Pi OS Bookworm (Wayland/labwc) |
 
