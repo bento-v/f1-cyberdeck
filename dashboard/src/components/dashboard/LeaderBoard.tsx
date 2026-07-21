@@ -49,8 +49,8 @@ const TableHeaders = () => {
 			className="grid items-center gap-2 p-1 px-2 text-sm font-medium text-zinc-500"
 			style={{
 				gridTemplateColumns: carMetrics
-					? "5.5rem 3.5rem 5.5rem 4rem 5rem 5.5rem auto 10.5rem"
-					: "5.5rem 3.5rem 5.5rem 4rem 5rem 5.5rem auto",
+					? "5.5rem 3.5rem 5.5rem 4rem 5rem 5.5rem 10.5rem"
+					: "5.5rem 3.5rem 5.5rem 4rem 5rem 5.5rem",
 			}}
 		>
 			<p>Position</p>
@@ -59,7 +59,6 @@ const TableHeaders = () => {
 			<p>Info</p>
 			<p>Gap</p>
 			<p>LapTime</p>
-			<p>Sectors</p>
 			{carMetrics && <p>Car Metrics</p>}
 		</div>
 	);
@@ -75,8 +74,8 @@ const SkeletonDriver = () => {
 			className="grid items-center gap-2 p-1.5"
 			style={{
 				gridTemplateColumns: carMetrics
-					? "5.5rem 3.5rem 5.5rem 4rem 5rem 5.5rem auto 10.5rem"
-					: "5.5rem 3.5rem 5.5rem 4rem 5rem 5.5rem auto",
+					? "5.5rem 3.5rem 5.5rem 4rem 5rem 5.5rem 10.5rem"
+					: "5.5rem 3.5rem 5.5rem 4rem 5rem 5.5rem",
 			}}
 		>
 			<div className={animateClass} style={{ width: "100%" }} />
@@ -102,15 +101,6 @@ const SkeletonDriver = () => {
 			<div className="flex w-full flex-col gap-1">
 				<div className={clsx(animateClass, "h-3! w-4/5")} />
 				<div className={clsx(animateClass, "h-4!")} />
-			</div>
-
-			<div className="flex w-full gap-1">
-				{new Array(3).fill(null).map((_, index) => (
-					<div className="flex w-full flex-col gap-1" key={`skeleton.sector.${index}`}>
-						<div className={clsx(animateClass, "h-4!")} />
-						<div className={clsx(animateClass, "h-3! w-2/3")} />
-					</div>
-				))}
 			</div>
 
 			{carMetrics && (

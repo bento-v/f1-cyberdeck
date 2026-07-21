@@ -12,7 +12,6 @@ import DriverTag from "./DriverTag";
 import DriverDRS from "./DriverDRS";
 import DriverGap from "./DriverGap";
 import DriverTire from "./DriverTire";
-import DriverMiniSectors from "./DriverMiniSectors";
 import DriverLapTime from "./DriverLapTime";
 import DriverInfo from "./DriverInfo";
 import DriverCarMetrics from "./DriverCarMetrics";
@@ -43,7 +42,9 @@ export default function Driver({ driver, timingDriver, position }: Props) {
 	const sessionPart = useDataStore((state) => state.state?.TimingData?.SessionPart);
 	const timingStatsDriver = useDataStore((state) => state.state?.TimingStats?.Lines[driver.RacingNumber]);
 	const appTimingDriver = useDataStore((state) => state.state?.TimingAppData?.Lines[driver.RacingNumber]);
-	const carData = useDataStore((state) => (state?.carsData ? state.carsData[driver.RacingNumber].Channels : undefined));
+	// Optional chain on the driver entry: a car-data frame can miss a driver that
+	// exists in DriverList, and an unguarded access would crash the whole page
+	const carData = useDataStore((state) => state?.carsData?.[driver.RacingNumber]?.Channels);
 
 	const hasFastest = timingStatsDriver?.PersonalBestLapTime.Position == 1;
 
@@ -65,8 +66,8 @@ export default function Driver({ driver, timingDriver, position }: Props) {
 				className="grid items-center gap-2"
 				style={{
 					gridTemplateColumns: carMetrics
-						? "5.5rem 3.5rem 5.5rem 4rem 5rem 5.5rem auto 10.5rem"
-						: "5.5rem 3.5rem 5.5rem 4rem 5rem 5.5rem auto",
+						? "5.5rem 3.5rem 5.5rem 4rem 5rem 5.5rem 10.5rem"
+						: "5.5rem 3.5rem 5.5rem 4rem 5rem 5.5rem",
 				}}
 			>
 				<DriverTag className="min-w-full!" short={driver.Tla} teamColor={driver.TeamColour} position={position} />
@@ -80,7 +81,6 @@ export default function Driver({ driver, timingDriver, position }: Props) {
 				<DriverInfo timingDriver={timingDriver} gridPos={appTimingDriver ? parseInt(appTimingDriver.GridPos) : 0} />
 				<DriverGap timingDriver={timingDriver} sessionPart={sessionPart} />
 				<DriverLapTime last={timingDriver.LastLapTime} best={timingDriver.BestLapTime} hasFastest={hasFastest} />
-				<DriverMiniSectors sectors={timingDriver.Sectors} bestSectors={timingStatsDriver?.BestSectors} />
 
 				{carMetrics && carData && <DriverCarMetrics carData={carData} />}
 			</div>

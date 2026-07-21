@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 
 import type { PositionCar, TimingDataDriver } from "@/types/state.type";
@@ -24,6 +24,28 @@ import {
 
 const SPACE = 1000;
 const ROTATION_FIX = 90;
+
+// --- Pit-lane tracing --------------------------------------------------------
+// MultiViewer circuit data has no pit-lane geometry, but cars in the pit lane
+// stream real GPS in the same coordinate space as the track. Record each
+// driver's InPit transit and keep the longest completed trace as the pit-lane
+// path (persisted per circuit), so the lane shows up from the first pit stop.
+const MIN_TRACE_STEP = 60; // skip GPS jitter / garage idling (~6 m between kept points)
+const MIN_PIT_POINTS = 12;
+const MIN_PIT_LENGTH = 1_500; // ~150 m of actual travel — filters garage-only traces
+
+type Point = { x: number; y: number };
+
+const traceLength = (points: Point[]): number => {
+	let length = 0;
+	for (let i = 1; i < points.length; i++) {
+		length += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+	}
+	return length;
+};
+
+const isPitTrace = (points: Point[]): boolean =>
+	points.length >= MIN_PIT_POINTS && traceLength(points) >= MIN_PIT_LENGTH;
 
 // Function to calculate driver position based on their segment progress
 function getDriverPosition(
@@ -112,7 +134,7 @@ export default function Map({ filter }: Props) {
 	const showCornerNumbers = useSettingsStore((state) => state.showCornerNumbers);
 	const favoriteDrivers = useSettingsStore((state) => state.favoriteDrivers);
 
-	// const positions = useDataStore((state) => state.positions);
+	const positions = useDataStore((state) => state.positions);
 	const drivers = useDataStore((state) => state?.state?.DriverList);
 	const trackStatus = useDataStore((state) => state?.state?.TrackStatus);
 	const timingDrivers = useDataStore((state) => state?.state?.TimingData);
@@ -128,6 +150,81 @@ export default function Map({ filter }: Props) {
 	const [rotation, setRotation] = useState<number>(0);
 	const [finishLine, setFinishLine] = useState<null | { x: number; y: number; startAngle: number }>(null);
 	const [originalTrackPoints, setOriginalTrackPoints] = useState<null | { x: number; y: number }[]>(null);
+
+	// In-progress pit transits per driver, plus the best completed trace
+	const activePitTracesRef = useRef<Record<string, Point[]>>({});
+	const bestPitTraceRef = useRef<Point[] | null>(null);
+	const [pitLane, setPitLane] = useState<Point[] | null>(null);
+
+	// Reset traces when the circuit changes and restore a previously learned lane
+	useEffect(() => {
+		activePitTracesRef.current = {};
+		bestPitTraceRef.current = null;
+		setPitLane(null);
+		if (!circuitKey) return;
+		try {
+			const stored = localStorage.getItem(`pitLane.${circuitKey}`);
+			if (stored) {
+				const parsed = JSON.parse(stored) as Point[];
+				if (isPitTrace(parsed)) {
+					bestPitTraceRef.current = parsed;
+					setPitLane(parsed);
+				}
+			}
+		} catch {
+			// corrupt/unavailable storage — the lane is re-learned on the next stop
+		}
+	}, [circuitKey]);
+
+	useEffect(() => {
+		if (!positions || !timingDrivers) return;
+		const traces = activePitTracesRef.current;
+		const bestLength = bestPitTraceRef.current ? traceLength(bestPitTraceRef.current) : 0;
+
+		for (const [nr, pos] of Object.entries(positions)) {
+			const inPit = timingDrivers.Lines[nr]?.InPit ?? false;
+			const trace = traces[nr];
+
+			if (inPit && pos && (pos.X !== 0 || pos.Y !== 0)) {
+				if (!trace) {
+					traces[nr] = [{ x: pos.X, y: pos.Y }];
+				} else {
+					const last = trace[trace.length - 1];
+					if (Math.hypot(pos.X - last.x, pos.Y - last.y) >= MIN_TRACE_STEP) {
+						trace.push({ x: pos.X, y: pos.Y });
+						// Live preview while the first (or a longer) transit is underway
+						if (isPitTrace(trace) && traceLength(trace) > bestLength) setPitLane([...trace]);
+					}
+				}
+			} else if (trace) {
+				// Transit finished — keep and persist it if it beats the current best
+				delete traces[nr];
+				if (isPitTrace(trace) && traceLength(trace) > bestLength) {
+					bestPitTraceRef.current = trace;
+					setPitLane(trace);
+					if (circuitKey) {
+						try {
+							localStorage.setItem(
+								`pitLane.${circuitKey}`,
+								JSON.stringify(trace.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }))),
+							);
+						} catch {
+							// storage full/blocked — lane still shows for this session
+						}
+					}
+				} else if (bestPitTraceRef.current) {
+					// Discarded partial transit — make sure the display shows the best
+					setPitLane(bestPitTraceRef.current);
+				}
+			}
+		}
+	}, [positions, timingDrivers, circuitKey]);
+
+	const pitLaneD = useMemo(() => {
+		if (!pitLane || pitLane.length < 2 || centerX == null || centerY == null) return null;
+		const rotated = pitLane.map((p) => rotate(p.x, p.y, rotation, centerX, centerY));
+		return `M${rotated[0].x},${rotated[0].y} ${rotated.map((p) => `L${p.x},${p.y}`).join(" ")}`;
+	}, [pitLane, rotation, centerX, centerY]);
 
 	useEffect(() => {
 		(async () => {
@@ -148,7 +245,17 @@ export default function Map({ filter }: Props) {
 				points: s.points.map((p) => rotate(p.x, p.y, fixedRotation, centerX, centerY)),
 			}));
 
-			const cornerPositions: Corner[] = mapJson.corners.map((corner) => ({
+			// Some circuits mark a long corner with several points sharing one number
+			// (Hungaroring T1/T12) — keep the first per number so labels (and React
+			// keys) stay unique.
+			const seenCorners = new Set<number>();
+			const cornerPositions: Corner[] = mapJson.corners
+				.filter((corner) => {
+					if (seenCorners.has(corner.number)) return false;
+					seenCorners.add(corner.number);
+					return true;
+				})
+				.map((corner) => ({
 				number: corner.number,
 				pos: rotate(corner.trackPosition.x, corner.trackPosition.y, fixedRotation, centerX, centerY),
 				labelPos: rotate(
@@ -209,7 +316,7 @@ export default function Map({ filter }: Props) {
 			.sort(prioritizeColoredSectors);
 	}, [trackStatus, sectors, yellowSectors]);
 
-	if (!points || !minX || !minY || !widthX || !widthY) {
+	if (!points || minX == null || minY == null || widthX == null || widthY == null) {
 		return (
 			<div className="h-full w-full p-2" style={{ minHeight: "35rem" }}>
 				<div className="h-full w-full animate-pulse rounded-lg bg-zinc-800" />
@@ -230,6 +337,20 @@ export default function Map({ filter }: Props) {
 				fill="transparent"
 				d={`M${points[0].x},${points[0].y} ${points.map((point) => `L${point.x},${point.y}`).join(" ")}`}
 			/>
+
+			{/* Pit lane learned from real pit-transit GPS (see tracing block above) */}
+			{pitLaneD && (
+				<path
+					data-testid="pit-lane"
+					className="stroke-zinc-500"
+					strokeWidth={70}
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					strokeDasharray="140 170"
+					fill="transparent"
+					d={pitLaneD}
+				/>
+			)}
 
 			{renderedSectors.map((sector) => {
 				const style = sector.pulse
@@ -274,7 +395,7 @@ export default function Map({ filter }: Props) {
 					/>
 				))}
 
-			{centerX && centerY && drivers && timingDrivers && (
+			{centerX != null && centerY != null && drivers && timingDrivers && (
 				<>
 					{Object.values(drivers)
 						.reverse()
@@ -286,7 +407,12 @@ export default function Map({ filter }: Props) {
 								: false;
 							const pit = timingDriver ? timingDriver.InPit : false;
 
-							const driverPosition = getDriverPosition(timingDriver, originalTrackPoints);
+							// Prefer real GPS (PositionZ) — continuous coords give smooth motion.
+							// Fall back to segment-progress placement when GPS is unavailable
+							// (e.g. a live feed that doesn't carry position data).
+							const gps = positions?.[driver.RacingNumber];
+							const hasGps = !!gps && (gps.X !== 0 || gps.Y !== 0);
+							const driverPosition = hasGps ? gps : getDriverPosition(timingDriver, originalTrackPoints);
 
 							// Skip rendering if we can't determine position
 							if (!driverPosition) return null;
@@ -347,7 +473,7 @@ const CarDot = ({ pos, name, color, favoriteDriver, pit, hidden, rotation, cente
 
 	return (
 		<g
-			className={clsx("fill-zinc-700", { "opacity-30": pit }, { "opacity-0!": hidden })}
+			className={clsx("fill-zinc-700", { "opacity-50": pit }, { "opacity-0!": hidden })}
 			style={{
 				transition: "all 1s linear",
 				transform,
@@ -358,13 +484,27 @@ const CarDot = ({ pos, name, color, favoriteDriver, pit, hidden, rotation, cente
 			<text
 				id={`map.driver.text`}
 				fontWeight="bold"
-				fontSize={120 * 3}
+				fontSize={120 * 1.3}
 				style={{
-					transform: "translateX(150px) translateY(-120px)",
+					transform: "translateX(135px) translateY(-95px)",
 				}}
 			>
 				{name}
 			</text>
+
+			{/* Pit status on the map — the bottom of the leaderboard (where pitting
+			    cars usually sit) is below the fold on the kiosk screen */}
+			{pit && (
+				<text
+					id={`map.driver.pit`}
+					fontWeight="bold"
+					fontSize={110}
+					className="fill-cyan-400"
+					style={{ transform: "translateX(135px) translateY(55px)" }}
+				>
+					PIT
+				</text>
+			)}
 
 			{favoriteDriver && (
 				<circle

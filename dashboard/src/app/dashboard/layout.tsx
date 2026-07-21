@@ -7,6 +7,7 @@ import { useDataEngine } from '@/hooks/useDataEngine';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { useStores } from '@/hooks/useStores';
 import { useSocket } from '@/hooks/useSocket';
+import { useSessionMode } from '@/hooks/useSessionMode';
 
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useSidebarStore } from '@/stores/useSidebarStore';
@@ -35,15 +36,21 @@ export default function DashboardLayout({ children }: Props) {
 
 	useWakeLock();
 
+	// Hide the top session bar unless a live race is actually in session
+	const { isLive } = useSessionMode();
+
 	const ended = useDataStore(({ state }) => state?.SessionStatus?.Status === 'Ends');
 
 	return (
 		<div className="flex h-screen w-full md:pt-2 md:pr-2 md:pb-2">
+			{/* Hide the mouse cursor on the kiosk (Wayland has no reliable unclutter) */}
+			{isKiosk && <style>{`*{cursor:none!important}`}</style>}
+
 			{!isKiosk && <Sidebar key="sidebar" connected={connected} />}
 
 			<div className="flex h-full w-full flex-1 flex-col md:gap-2">
-				{!isKiosk && <DesktopStaticBar show={!syncing || ended} />}
-				<MobileStaticBar show={!syncing || ended} connected={connected} />
+				{!isKiosk && isLive && <DesktopStaticBar show={!syncing || ended} />}
+				{isLive && <MobileStaticBar show={!syncing || ended} connected={connected} />}
 
 				<div
 					className={
@@ -109,7 +116,10 @@ function DesktopStaticBar({ show }: { show: boolean }) {
 	const pin = useSidebarStore((state) => state.pin);
 
 	return (
-		<div className="hidden w-full flex-row justify-between overflow-hidden rounded-lg border border-zinc-800 p-2 md:flex">
+		<div
+			data-testid="session-bar"
+			className="hidden w-full flex-row justify-between overflow-hidden rounded-lg border border-zinc-800 p-2 md:flex"
+		>
 			<div className="flex items-center gap-2">
 				<AnimatePresence>
 					{!isKiosk && !pinned && <SidenavButton key="desktop" className="shrink-0" onClick={() => pin()} />}
