@@ -4,7 +4,7 @@
 node_modules/
 ./.yarn/
 
-.dockeringore
+.dockerignore
 
 .env
 .env.example
@@ -12,3 +12,9 @@ node_modules/
 dockerfile
 
 .prettier.config.cjs
+
+# dev/test-only — not needed in the image, and replay-data alone is ~16 MB
+tests/
+test-results/
+playwright.config.ts
+scripts/replay-data/

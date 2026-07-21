@@ -1,29 +1,53 @@
+# Builds the f1-cyberdeck fork from source (the dashboard with kiosk mode, and
+# the SSE realtime service) rather than pulling upstream f1-dash images — the
+# upstream realtime serves WebSockets, which this fork's SSE dashboard can't use.
+#
+# On a 4 GB Raspberry Pi the Rust builds are memory-hungry; ensure the Pi has
+# swap before `docker compose up -d --build`, or cross-build on a faster machine
+# with `docker buildx bake arm64` and load the images.
 services:
   api:
-    image: ghcr.io/slowlydev/f1-dash-api:latest
+    build:
+      context: .
+      dockerfile: dockerfile
+      target: api
     ports:
       - 4010:80
     environment:
-      - RUST_LOG=api=debug
+      - RUST_LOG=api=info
       - ADDRESS=0.0.0.0:80
       - ORIGIN=http://localhost:3000
+    restart: unless-stopped
 
   realtime:
-    image: ghcr.io/slowlydev/f1-dash-realtime:latest
+    build:
+      context: .
+      dockerfile: dockerfile
+      target: realtime
     ports:
       - 4000:80
     environment:
-      - RUST_LOG=realtime=debug
+      - RUST_LOG=realtime=info
       - ADDRESS=0.0.0.0:80
       - ORIGIN=http://localhost:3000
+    restart: unless-stopped
 
   web:
-    image: ghcr.io/slowlydev/f1-dash:latest
+    build:
+      context: ./dashboard
+      dockerfile: dockerfile
+      args:
+        # Baked at build time (NEXT_PUBLIC_* are inlined). The browser on the Pi
+        # reaches the realtime service via the published host port localhost:4000.
+        NEXT_PUBLIC_KIOSK: "1"
+        NEXT_PUBLIC_LIVE_URL: http://localhost:4000
     depends_on:
       - realtime
       - api
     ports:
       - 3000:3000
     environment:
-      - NEXT_PUBLIC_LIVE_URL=http://localhost:4000
-      - API_URL=http://localhost:4010
+      # Server-side only (the /api/schedule proxy). Reaches the api container over
+      # the compose network; falls back to the public Jolpica API if unavailable.
+      - API_URL=http://api:80
+    restart: unless-stopped

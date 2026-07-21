@@ -35,3 +35,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 /.yarn
+
+# fastf1 replay (large, generated — regenerate with scripts/extract-fastf1.py)
+/scripts/replay-data/*.json
+.ff1cache/
+**/.ff1cache
+
+# playwright artifacts
+/test-results/
+/playwright-report/

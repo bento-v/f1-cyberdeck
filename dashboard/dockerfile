@@ -9,6 +9,14 @@ RUN yarn install --immutable
 
 FROM dependencies AS builder
 
+# NEXT_PUBLIC_* vars are inlined at build time (not read at runtime), so the
+# kiosk flag and live-data URL must be baked here. Defaults suit the single-Pi
+# kiosk; override via compose build args if needed.
+ARG NEXT_PUBLIC_KIOSK=1
+ARG NEXT_PUBLIC_LIVE_URL=http://localhost:4000
+ENV NEXT_PUBLIC_KIOSK=${NEXT_PUBLIC_KIOSK}
+ENV NEXT_PUBLIC_LIVE_URL=${NEXT_PUBLIC_LIVE_URL}
+
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV SKIP_ENV_VALIDATION=1
 ENV NEXT_STANDALONE=1

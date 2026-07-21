@@ -10,3 +10,6 @@ compose.env
 
 # data
 *.data.*
+
+# playwright artifacts (specs run from the repo root land here)
+test-results/

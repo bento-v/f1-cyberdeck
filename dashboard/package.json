@@ -7,7 +7,11 @@
 		"dev": "next dev",
 		"lint": "eslint .",
 		"start": "next start",
-		"prettier": "prettier --write src"
+		"prettier": "prettier --write src",
+		"mock": "node scripts/mock-realtime.mjs",
+		"mock:live": "node scripts/mock-realtime.mjs --status=started",
+		"replay": "node scripts/mock-realtime.mjs --replay=scripts/replay-data/austria-2026.json --speed=1",
+		"replay:end": "node scripts/mock-realtime.mjs --replay=scripts/replay-data/austria-2026.json --speed=6 --start=5150"
 	},
 	"dependencies": {
 		"@headlessui/react": "2.2.10",
@@ -25,6 +29,7 @@
 		"zustand": "5.0.14"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.60.0",
 		"@tailwindcss/postcss": "4.3.0",
 		"@types/node": "22.19.20",
 		"@types/pako": "2.0.4",

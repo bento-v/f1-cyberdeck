@@ -1,0 +1,10 @@
+# Keep Linux-targeted files as LF even when checked out on Windows, so they run
+# correctly on the Raspberry Pi (CRLF breaks bash scripts and Docker builds).
+*.sh        text eol=lf
+*.mjs       text eol=lf
+dockerfile  text eol=lf
+*.dockerignore text eol=lf
+.dockerignore  text eol=lf
+compose.yaml   text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf

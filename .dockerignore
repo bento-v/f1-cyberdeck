@@ -2,7 +2,12 @@
 .github
 
 dash/
+# The Rust build context (root) doesn't need the Next app at all — without this
+# the whole dashboard tree (node_modules, .next, test artifacts) gets shipped to
+# the Docker daemon on every realtime/api build, which is brutal on the Pi.
+dashboard/
 target/
+test-results/
 
 .dockerignore
 .env

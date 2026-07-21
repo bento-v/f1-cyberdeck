@@ -61,6 +61,9 @@ COMMON_FLAGS=(
     --check-for-update-interval=31536000
     --autoplay-policy=no-user-gesture-required
     --start-fullscreen
+    # Don't use the system keyring (avoids the "unlock keyring" prompt on an
+    # unattended kiosk)
+    --password-store=basic
     # Hardware acceleration — critical for smooth 200ms updates on Pi 5
     --ignore-gpu-blocklist
     --enable-gpu-rasterization
@@ -87,8 +90,17 @@ else
     PLATFORM_FLAGS=("${X11_FLAGS[@]}")
 fi
 
+# Find the Chromium binary — Bookworm calls it `chromium`, older releases
+# `chromium-browser`.
+CHROMIUM="$(command -v chromium-browser || command -v chromium || true)"
+if [ -z "$CHROMIUM" ]; then
+    echo "ERROR: Chromium not found (looked for 'chromium' and 'chromium-browser')." >&2
+    echo "Install it with: sudo apt install -y chromium" >&2
+    exit 1
+fi
+
 echo "Launching F1 Cyberdeck kiosk → $DASHBOARD_URL"
-echo "Session type: $([ "$IS_WAYLAND" -eq 1 ] && echo 'Wayland' || echo 'X11')"
+echo "Session type: $([ "$IS_WAYLAND" -eq 1 ] && echo 'Wayland' || echo 'X11')  Browser: $CHROMIUM"
 
 # ---------------------------------------------------------------------------
 # Restart loop — Chromium can crash on GPU/WebGL events; kiosk must self-heal
@@ -99,7 +111,7 @@ while true; do
           "$HOME/.config/chromium/SingletonCookie" \
           "$HOME/.config/chromium/SingletonSocket"
 
-    chromium-browser \
+    "$CHROMIUM" \
         "${COMMON_FLAGS[@]}" \
         "${PLATFORM_FLAGS[@]}" \
         "$DASHBOARD_URL" || true
