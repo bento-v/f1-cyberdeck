@@ -122,28 +122,6 @@ function jolpicaRaceToRound(race: JolpicaScheduleRace): Round {
 	};
 }
 
-// Builds a minimal Round from a completed race result so CircuitSchedulePanel
-// shows the last race's sessions (all past) with matching results.
-function lastRaceToRound(race: JolpicaRace): Round {
-	const addMins = (iso: string, mins: number) =>
-		new Date(new Date(iso).getTime() + mins * 60_000).toISOString();
-	const raceStart = `${race.date}T${race.time ?? "14:00:00Z"}`;
-	const qualStart = new Date(new Date(raceStart).getTime() - 24 * 60 * 60_000).toISOString();
-	const sessions: Session[] = [
-		{ kind: "Qualifying", start: qualStart, end: addMins(qualStart, 60) },
-		{ kind: "Race", start: raceStart, end: addMins(raceStart, 120) },
-	];
-	return {
-		name: race.raceName,
-		countryName: race.Circuit.Location.country,
-		countryKey: null,
-		start: sessions[0].start,
-		end: sessions[sessions.length - 1].end,
-		sessions,
-		over: true,
-	};
-}
-
 type Props = {
 	onPreLive?: () => void;
 };
