@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import type { Map } from "@/types/map.type";
 import { fetchMap } from "@/lib/fetchMap";
 import { getCircuitKey } from "@/lib/circuitKeys";
 import { rad, rotate } from "@/lib/map";
