@@ -12,9 +12,9 @@
 **kiosk**. It runs on a Raspberry Pi 5 driving a 1366×768 display in Chromium kiosk mode and
 manages the whole race weekend on its own:
 
-- **Live mode** — real-time telemetry during a session: leaderboard with tyres, gaps, DRS and pit
+- **Live mode**  real-time telemetry during a session: leaderboard with tyres, gaps, DRS and pit
   status, a GPS track map, race-control alerts, and full-screen flag indicators.
-- **Idle carousel** — between sessions, an auto-rotating set of eight info panels.
+- **Idle carousel**  between sessions, an auto-rotating set of eight info panels.
 - **Race-weekend arc**, fully automatic: idle carousel → 30 s pre-race countdown → live timing →
   ~90 s post-race summary → back to an updated carousel.
 
@@ -27,8 +27,8 @@ corner toasts. Pitting cars are tagged on the map and the pit lane is learned fr
   <img alt="Live race" src="./docs/live-race.gif" width="800">
 </p>
 
-Safety Car, Virtual Safety Car, and red-flag periods glow the whole screen edge — yellow for
-SC/VSC, red for a red flag — so the track state is readable from across the room.
+Safety Car, Virtual Safety Car, and red flag periods glow the whole screen edge. Yellow for
+SC/VSC, red for a red flag so the track state is readable from across the room.
 
 <p align="center">
   <img alt="Virtual Safety Car" src="./docs/live-vsc-border.png" width="800">
@@ -46,7 +46,7 @@ points-payers, DNFs, and the real championship swing.
 ## Idle carousel
 
 Eight panels cycle every 15 seconds while no session is running. All data is cached and degrades
-gracefully when an upstream API is unreachable — the kiosk always shows *something*.
+gracefully when an upstream API is unreachable. The kiosk always shows something.
 
 | Drivers' Championship | Constructors' Championship |
 |---|---|
@@ -71,7 +71,7 @@ gracefully when an upstream API is unreachable — the kiosk always shows *somet
 | Kiosk | Chromium on Raspberry Pi OS Bookworm (Wayland/labwc) |
 
 The realtime service serves **SSE** (upstream f1-dash serves WebSockets), so everything is built
-from this repo — upstream prebuilt images are incompatible.
+from this repo (upstream prebuilt images are incompatible.)
 
 ## Deployment
 
@@ -94,7 +94,7 @@ yarn install
 yarn dev            # http://localhost:3000/dashboard
 ```
 
-A dependency-free mock SSE backend and a FastF1 replay player drive live mode without a real
+A dependency free mock SSE backend and a FastF1 replay player drive live mode without a real
 session:
 
 ```bash
