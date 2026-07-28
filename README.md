@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="f1-cyberdeck" src="./dashboard/public/tag-logo.png" width="200">
+  <img alt="F1 Kiosk" src="./dashboard/public/tag-logo.png" width="200">
 </p>
 
 <h1 align="center">f1-cyberdeck</h1>
