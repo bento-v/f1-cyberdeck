@@ -1,83 +1,98 @@
 # Setup
 
-A short tutorial on how to setup f1-dash via docker compose or kubernetes.
+Service and environment reference for **f1-cyberdeck**. For the one-shot Raspberry Pi install and
+the copy-deploy tarball, see [`README.md`](README.md); for architecture and Pi-specific gotchas, see
+[`CLAUDE.md`](CLAUDE.md).
+
+> This fork's `realtime` service serves **SSE**, not WebSockets like upstream f1-dash. Upstream
+> prebuilt images are therefore incompatible — **everything is built from this repo.** Do not pull
+> `slowlydev/f1-dash` images.
 
 ## Components
 
-### dashboard
+Three services, all built from source and wired together by [`compose.yaml`](compose.yaml).
 
-Techstack: Next.js, TypeSecript
+### dashboard (`web`)
 
-The website/dashboard itself. Gets data from api and realtime service.
+The Next.js 16 app (App Router, standalone output). Renders the kiosk and reads live data over SSE.
 
-envs:
+`NEXT_PUBLIC_*` values are **inlined at build time**, so they are passed as Docker **build args**,
+not runtime env:
+
 ```
-NEXT_PUBLIC_LIVE_URL=http://localhost:4000
-API_URL=http://localhost:4001
-
-# rybbit tracking script and id
-TRACKING_ID=
-TRACKING_URL=
+NEXT_PUBLIC_KIOSK=1                        # kiosk mode: hide nav/cursor, enable burn-in shift
+NEXT_PUBLIC_LIVE_URL=http://localhost:4000 # where the browser reaches the realtime SSE endpoint
 ```
 
-build envs:
-```
-SKIP_ENV_VALIDATION=1		# skips env validation, use for docker
-NEXT_STANDALONE=1 			# enables nextjs standalone build, use for docker
-NEXT_NO_COMPRESS=1 			# disables nextjs compression, use when using proxy compression
-```
+Runtime env:
 
-note: you can't change build variables when using the public f1-dash image. But you can set them when building your own.
+```
+API_URL=http://api:80                      # schedule/results service (compose network name)
+```
 
 ### realtime
 
-Techstack: Rust, SignalR, Axum
+Rust (Axum + SignalR). Connects to F1's live SignalR feed and re-serves it as **SSE** on
+`/api/realtime` (plus `/api/current`, `/api/drivers`, …).
 
-Connects to f1 over signalr and serves realtime data over websockets to dashboard.
-
-envs:
 ```
-# logging
 RUST_LOG=realtime=info
-
-# Address where the webserver opens on with port
-ADDRESS=0.0.0.0:4000
-
-# CORS Origin, set to dashboard address
-ORIGIN="https://f1-dash.com"
-
-# (optional) endpoint for simulator
-F1_DEV_URL=ws://localhost:8000/ws
+ADDRESS=0.0.0.0:80                          # container listens on :80; compose publishes 4000:80
+ORIGIN=http://localhost:3000                # CORS origin (the dashboard)
+F1_DEV_URL=ws://localhost:8000/ws           # (optional) point at the simulator for replay
 ```
 
 ### api
 
-Techstack: Rust, Axum
+Rust (Axum). Serves non-realtime data (past/future sessions, schedule, results), backed by the
+Jolpica (Ergast-compatible) API.
 
-Handles all non realtime data depended things like past & future sessions.
-
-envs:
 ```
-# logging
 RUST_LOG=api=info
-
-# Address where the webserver opens on with port
-ADDRESS=0.0.0.0:4001
-
-# CORS Origin, set to dashboard address
-ORIGIN="https://f1-dash.com"
+ADDRESS=0.0.0.0:80                          # container listens on :80; compose publishes 4010:80
+ORIGIN=http://localhost:3000                # CORS origin (the dashboard)
 ```
 
-## Platforms
+## Running with Docker Compose
 
-Please not when choosing the dockerimages / choosing which tag, if you use latest or develop, which are moving tags and are not fixed, things might break over time.
+`compose.yaml` builds all three services from source and runs them with `restart: unless-stopped`:
 
-### Docker Compose
+- `web` builds `./dashboard` with build args `NEXT_PUBLIC_KIOSK=1` and
+  `NEXT_PUBLIC_LIVE_URL=http://localhost:4000`; the browser reaches `realtime` via the published
+  host port `localhost:4000`.
+- `realtime` and `api` build from the root [`dockerfile`](dockerfile) (targets `realtime` / `api`).
 
-There is a basic docker compose file in the root of the project. This is a very basic setup only expected to run on a local machine and only expected to be accessed from there.
-If you want to host f1-dash on a server or also access it from other devices on your local network then adjustments have to be made like setting the ORIGIN environment variable or setting up a reverse proxy.
+```bash
+docker compose up --build -d      # build + run all three
+docker compose logs -f web        # follow a service
+docker compose down               # stop
+```
 
-### Kubernetes
+On the Pi, `kiosk/install.sh` does this for you (plus Chromium, swap, autostart). To cross-build the
+arm64 images from a faster machine: `docker buildx bake arm64` (see [`docker-bake.hcl`](docker-bake.hcl)).
 
-There is a kubernetes setup in the `.k8s` folder. This is a more advanced setup expected to run on a server and be accessed from other devices on your local network or even the internet.
-This is the way f1-dash.com is hosted. There's no Helm Chart for now just a few yamls. Ingress/Gatway is not included as this is very specific to your setup.
+## Local development (no Docker)
+
+```bash
+cd dashboard
+yarn install         # yarn 4 (berry) — NOT npm; keep yarn.lock authoritative
+yarn dev             # http://localhost:3000/dashboard
+```
+
+Drive live mode without a real session using the dependency-free mock or the FastF1 replay:
+
+```bash
+yarn mock:live       # synthetic "Started" feed, auto-switches to live
+yarn replay          # replays a real recorded race (2026 Austrian GP) over SSE
+yarn replay:end      # jumps near the finish to trigger the post-race summary
+```
+
+See `dashboard/scripts/replay-data/README.md` for the replay data pipeline, and `README.md` for the
+`?testCountdown=1` / `?burnin=1` dev shortcuts.
+
+## Notes
+
+- CORS: the services default to a permissive local setup. If you expose them beyond `localhost`
+  (other devices on your LAN, a reverse proxy), set each service's origin accordingly and secure it
+  yourself — the kiosk deployment assumes a single local machine.
+- Secrets: `.env`, `compose.env` and any `*.tar.gz` courier are git-ignored.
