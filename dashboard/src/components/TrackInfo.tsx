@@ -30,7 +30,7 @@ export default function TrackInfo() {
 					<p className="text-lg font-medium">{currentTrackStatus.message}</p>
 				</div>
 			) : (
-				<div className="relative h-8 w-28 animate-pulse overflow-hidden rounded-lg bg-zinc-800" />
+				<div className="relative h-8 w-28 animate-pulse overflow-hidden rounded-lg bg-s2" />
 			)}
 		</div>
 	);

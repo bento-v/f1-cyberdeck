@@ -13,9 +13,9 @@ export default function WindSpeedComplication({ speed, directionDeg }: Props) {
 					{getWindDirection(directionDeg)}
 				</p>
 
-				<p className="text-xl leading-none font-medium text-white">{speed}</p>
+				<p className="text-xl leading-none font-medium text-t1">{speed}</p>
 
-				<p className="text-center text-[10px] leading-none font-medium text-white">m/s</p>
+				<p className="text-center text-[10px] leading-none font-medium text-t1">m/s</p>
 			</div>
 		</div>
 	);

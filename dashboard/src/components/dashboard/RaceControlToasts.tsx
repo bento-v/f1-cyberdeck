@@ -98,7 +98,7 @@ export default function RaceControlToasts() {
 						exit={{ opacity: 0, y: 12 }}
 						transition={{ duration: 0.3 }}
 						data-testid="race-control-toast"
-						className="flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/95 p-[18px] shadow-lg shadow-black/40"
+						className="flex items-center gap-4 rounded-xl border border-hairline bg-s1/95 p-[18px] shadow-lg shadow-black/40"
 					>
 						{current.Flag && current.Flag !== "CLEAR" && (
 							<Image
@@ -110,8 +110,8 @@ export default function RaceControlToasts() {
 						)}
 
 						<div>
-							<div className="flex items-center gap-1.5 text-lg leading-none text-zinc-500">
-								<p className="font-semibold uppercase tracking-wider text-red-500/90">Race Control</p>
+							<div className="flex items-center gap-1.5 text-lg leading-none text-t3">
+								<p className="font-semibold uppercase tracking-wider text-accent/90">Race Control</p>
 								{!!current.Lap && (
 									<>
 										{"·"}

@@ -394,18 +394,18 @@ export default function IdleCarousel({ onPreLive }: Props) {
 						>
 							<div
 								className={`h-2 rounded-full transition-all duration-300 ${
-									i === activePanel ? "w-8 bg-red-500" : "w-2 bg-zinc-600"
+									i === activePanel ? "w-8 bg-accent" : "w-2 bg-t4"
 								}`}
 							/>
 						</button>
 					))}
-					<span className="ml-2 text-sm text-zinc-500">{PANEL_LABELS[activePanel]}</span>
+					<span className="ml-2 text-sm text-t3">{PANEL_LABELS[activePanel]}</span>
 				</div>
 			)}
 
 			{/* Carousel panels / Race countdown */}
 			<div
-				className="min-h-0 flex-1 rounded-lg border border-zinc-800 bg-zinc-900 transition-opacity duration-500"
+				className="min-h-0 flex-1 rounded-lg border border-hairline bg-s1 shadow-lg shadow-black/20 transition-opacity duration-500"
 				style={{ opacity: showRaceCountdown ? 1 : visible ? 1 : 0 }}
 			>
 				{showRaceCountdown ? (
@@ -417,36 +417,36 @@ export default function IdleCarousel({ onPreLive }: Props) {
 				) : null}
 				{!showRaceCountdown && activePanel === 0 && (
 					!driverLoaded ? (
-						<div className="flex h-full items-center justify-center text-zinc-500">Loading standings…</div>
+						<div className="flex h-full items-center justify-center text-t3">Loading standings…</div>
 					) : driverStandings !== null ? (
 						<DriverStandings standings={driverStandings} season={driverSeason} />
 					) : (
-						<div className="flex h-full items-center justify-center text-zinc-500">
+						<div className="flex h-full items-center justify-center text-t3">
 							Standings unavailable — will retry when connection is restored
 						</div>
 					)
 				)}
 				{!showRaceCountdown && activePanel === 1 && (
 					!constructorLoaded ? (
-						<div className="flex h-full items-center justify-center text-zinc-500">Loading standings…</div>
+						<div className="flex h-full items-center justify-center text-t3">Loading standings…</div>
 					) : constructorStandings !== null ? (
 						<ConstructorStandings standings={constructorStandings} season={constructorSeason} />
 					) : (
-						<div className="flex h-full items-center justify-center text-zinc-500">
+						<div className="flex h-full items-center justify-center text-t3">
 							Standings unavailable — will retry when connection is restored
 						</div>
 					)
 				)}
 				{!showRaceCountdown && activePanel === 2 && (
 					!scheduleLoaded ? (
-						<div className="flex h-full items-center justify-center text-zinc-500">Loading schedule…</div>
+						<div className="flex h-full items-center justify-center text-t3">Loading schedule…</div>
 					) : (
 						<NextRacePanel round={nextRound} />
 					)
 				)}
 				{!showRaceCountdown && activePanel === 3 && (
 					!scheduleLoaded ? (
-						<div className="flex h-full items-center justify-center text-zinc-500">Loading schedule…</div>
+						<div className="flex h-full items-center justify-center text-t3">Loading schedule…</div>
 					) : (
 						<CircuitSchedulePanel
 							round={nextRound}
@@ -458,18 +458,18 @@ export default function IdleCarousel({ onPreLive }: Props) {
 				)}
 				{!showRaceCountdown && activePanel === 4 && (
 					!lastRaceLoaded ? (
-						<div className="flex h-full items-center justify-center text-zinc-500">Loading last race…</div>
+						<div className="flex h-full items-center justify-center text-t3">Loading last race…</div>
 					) : (
 						<LastRacePanel race={lastRace} />
 					)
 				)}
 				{!showRaceCountdown && activePanel === 5 && (
 					!driverLoaded ? (
-						<div className="flex h-full items-center justify-center text-zinc-500">Loading standings…</div>
+						<div className="flex h-full items-center justify-center text-t3">Loading standings…</div>
 					) : driverStandings !== null ? (
 						<DriverSeasonPanel standings={driverStandings} season={driverSeason} />
 					) : (
-						<div className="flex h-full items-center justify-center text-zinc-500">
+						<div className="flex h-full items-center justify-center text-t3">
 							Standings unavailable — will retry when connection is restored
 						</div>
 					)

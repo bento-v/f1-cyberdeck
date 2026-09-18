@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { duration, now, utc } from "moment";
 
 import type { Session } from "@/types/schedule.type";
@@ -11,113 +11,59 @@ type Props = {
 	type: "race" | "other";
 };
 
+type Parts = [number | null, number | null, number | null, number | null];
+
+const UNITS = ["days", "hours", "minutes", "seconds"] as const;
+
 export default function Countdown({ next, type }: Props) {
-	const [[days, hours, minutes, seconds], setDuration] = useState<
-		[number | null, number | null, number | null, number | null]
-	>([null, null, null, null]);
+	const [parts, setParts] = useState<Parts>([null, null, null, null]);
 
-	const nextMoment = utc(next.start);
-
-	const requestRef = useRef<number | null>(null);
-
+	// Whole-second display → a 1s setInterval, not requestAnimationFrame. Avoids
+	// waking the main thread 60×/s on the unattended Pi (CLAUDE.md Pi guidance).
+	// Keyed on the start time so the interval isn't rebuilt on every parent render.
+	const startIso = next.start;
 	useEffect(() => {
-		const animateNextFrame = () => {
-			const diff = duration(nextMoment.diff(now()));
-
-			const days = parseInt(diff.asDays().toString());
-
+		const target = utc(startIso);
+		const tick = () => {
+			const diff = duration(target.diff(now()));
 			if (diff.asSeconds() > 0) {
-				setDuration([days, diff.hours(), diff.minutes(), diff.seconds()]);
+				setParts([Math.floor(diff.asDays()), diff.hours(), diff.minutes(), diff.seconds()]);
 			} else {
-				setDuration([0, 0, 0, 0]);
+				setParts([0, 0, 0, 0]);
 			}
-
-			requestRef.current = requestAnimationFrame(animateNextFrame);
 		};
-
-		requestRef.current = requestAnimationFrame(animateNextFrame);
-		return () => (requestRef.current ? cancelAnimationFrame(requestRef.current) : void 0);
-	}, [nextMoment]);
+		tick();
+		const iv = setInterval(tick, 1000);
+		return () => clearInterval(iv);
+	}, [startIso]);
 
 	return (
 		<div>
-			<p className="text-lg">Next {type === "race" ? "race" : "session"} in</p>
+			<p className="text-base text-t2">Next {type === "race" ? "race" : "session"} in</p>
 
-			<AnimatePresence>
-				<div className="grid auto-cols-max grid-flow-col gap-4 text-3xl">
-					<div>
-						{days != undefined && days != null ? (
-							<motion.p
-								className="min-w-12"
-								key={days}
-								initial={{ y: -10, opacity: 0 }}
-								animate={{ y: 0, opacity: 1 }}
-								exit={{ y: 10, opacity: 0 }}
-							>
-								{days}
-							</motion.p>
-						) : (
-							<div className="h-9 w-12 animate-pulse rounded-md bg-zinc-800" />
-						)}
-
-						<p className="text-base text-zinc-500">days</p>
+			<div className="mt-1 grid auto-cols-max grid-flow-col gap-5">
+				{parts.map((value, i) => (
+					<div key={UNITS[i]}>
+						<AnimatePresence mode="popLayout" initial={false}>
+							{value != null ? (
+								<motion.p
+									className="nums t-display min-w-12 text-4xl text-t1"
+									key={value}
+									initial={{ y: -10, opacity: 0 }}
+									animate={{ y: 0, opacity: 1 }}
+									exit={{ y: 10, opacity: 0 }}
+									transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+								>
+									{String(value).padStart(2, "0")}
+								</motion.p>
+							) : (
+								<div className="h-9 w-12 animate-pulse rounded-md bg-s2" />
+							)}
+						</AnimatePresence>
+						<p className="mt-1 text-sm text-t3">{UNITS[i]}</p>
 					</div>
-
-					<div>
-						{hours != undefined && hours != null ? (
-							<motion.p
-								className="min-w-12"
-								key={hours}
-								initial={{ y: -10, opacity: 0 }}
-								animate={{ y: 0, opacity: 1 }}
-								exit={{ y: 10, opacity: 0 }}
-							>
-								{hours}
-							</motion.p>
-						) : (
-							<div className="h-9 w-12 animate-pulse rounded-md bg-zinc-800" />
-						)}
-
-						<p className="text-base text-zinc-500">hours</p>
-					</div>
-
-					<div>
-						{minutes != undefined && minutes != null ? (
-							<motion.p
-								className="min-w-12"
-								key={minutes}
-								initial={{ y: -10, opacity: 0 }}
-								animate={{ y: 0, opacity: 1 }}
-								exit={{ y: 10, opacity: 0 }}
-							>
-								{minutes}
-							</motion.p>
-						) : (
-							<div className="h-9 w-12 animate-pulse rounded-md bg-zinc-800" />
-						)}
-
-						<p className="text-base text-zinc-500">minutes</p>
-					</div>
-
-					<div>
-						{seconds != undefined && seconds != null ? (
-							<motion.p
-								className="min-w-12"
-								key={seconds}
-								initial={{ y: -10, opacity: 0 }}
-								animate={{ y: 0, opacity: 1 }}
-								exit={{ y: 10, opacity: 0 }}
-							>
-								{seconds}
-							</motion.p>
-						) : (
-							<div className="h-9 w-12 animate-pulse rounded-md bg-zinc-800" />
-						)}
-
-						<p className="text-base text-zinc-500">seconds</p>
-					</div>
-				</div>
-			</AnimatePresence>
+				))}
+			</div>
 		</div>
 	);
 }

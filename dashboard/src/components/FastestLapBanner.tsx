@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useDataStore } from "@/stores/useDataStore";
+import { readableTextColor } from "@/lib/contrast";
+import { teamTextOnDark } from "@/lib/teamPalette";
 
 export default function FastestLapBanner() {
 	const timingData = useDataStore((state) => state.state?.TimingData);
@@ -42,6 +44,12 @@ export default function FastestLapBanner() {
 	if (!displayDriver || !displayTime) return null;
 
 	const teamColor = displayDriver.TeamColour ?? "9B26B6";
+	// Lap time is team-coloured on the near-black banner — use the team's bright
+	// brand shade so darker liveries (Red Bull, Ferrari, Aston) stay readable.
+	const timeColor = teamTextOnDark(teamColor);
+	// The TLA chip is filled with the livery colour; pick black/white per team so
+	// the code reads on both dark and light liveries.
+	const chipText = readableTextColor(`#${teamColor}`);
 
 	return (
 		<div
@@ -60,35 +68,30 @@ export default function FastestLapBanner() {
 
 			<div className="relative flex items-center gap-3">
 				<div
-					className="flex h-8 w-8 items-center justify-center rounded-md font-black text-black"
-					style={{ backgroundColor: `#${teamColor}` }}
+					className="flex h-8 w-8 items-center justify-center rounded-md font-black"
+					style={{ backgroundColor: `#${teamColor}`, color: chipText }}
 				>
 					<span className="text-sm">{displayDriver.Tla}</span>
 				</div>
 
 				<div>
-					<p className="text-xs font-semibold uppercase tracking-widest text-zinc-400">
-						Fastest Lap
-					</p>
-					<p className="text-lg font-bold leading-tight">
+					<p className="t-eyebrow text-t2">Fastest Lap</p>
+					<p className="t-title text-lg text-t1">
 						{displayDriver.FirstName} {displayDriver.LastName}
 					</p>
 				</div>
 			</div>
 
 			<div className="relative ml-auto text-right">
-				<p className="text-xs text-zinc-400">Time</p>
-				<p
-					className="font-mono text-2xl font-bold"
-					style={{ color: `#${teamColor}` }}
-				>
+				<p className="text-xs text-t2">Time</p>
+				<p className="nums t-display font-mono text-2xl" style={{ color: timeColor }}>
 					{displayTime}
 				</p>
 			</div>
 
 			<div className="relative text-right">
-				<p className="text-xs text-zinc-400">Team</p>
-				<p className="text-sm font-medium">{displayDriver.TeamName}</p>
+				<p className="text-xs text-t2">Team</p>
+				<p className="text-sm font-medium text-t1">{displayDriver.TeamName}</p>
 			</div>
 		</div>
 	);

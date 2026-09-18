@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+import Panel from "@/components/idle/Panel";
+import PanelHeader from "@/components/idle/PanelHeader";
+
 const WEATHER_CACHE_TTL = 15 * 60_000; // 15 minutes
 
 type WeatherCache = { data: WeatherData; ts: number };
@@ -73,9 +76,9 @@ type StatCardProps = {
 
 function StatCard({ label, value }: StatCardProps) {
 	return (
-		<div className="flex flex-col items-center justify-center rounded-lg bg-zinc-800 px-4 py-3">
-			<span className="text-xs font-semibold uppercase tracking-widest text-zinc-500">{label}</span>
-			<span className="mt-1 text-lg font-bold text-white">{value}</span>
+		<div className="flex flex-col items-center justify-center rounded-lg bg-s2 px-4 py-3">
+			<span className="t-eyebrow text-t3">{label}</span>
+			<span className="nums mt-1.5 text-lg font-bold text-t1">{value}</span>
 		</div>
 	);
 }
@@ -97,33 +100,25 @@ export default function WeatherPanel({ lat, lon, circuitName, locality }: Props)
 	}, [lat, lon]);
 
 	return (
-		<div className="flex h-full flex-col gap-4 p-6">
-			<div>
-				<p className="text-xs font-semibold uppercase tracking-widest text-red-500">Track Weather</p>
-				<h2 className="text-3xl font-bold text-white">{circuitName ?? "Circuit"}</h2>
-				{locality && <p className="text-base text-zinc-400">{locality}</p>}
-			</div>
+		<Panel>
+			<PanelHeader eyebrow="Track Weather" title={circuitName ?? "Circuit"} subtitle={locality ?? undefined} />
 
 			{loading && (
 				<div className="flex flex-1 items-center justify-center">
-					<div className="h-12 w-48 animate-pulse rounded-lg bg-zinc-800" />
+					<div className="h-12 w-48 animate-pulse rounded-lg bg-s2" />
 				</div>
 			)}
 
 			{!loading && !weather && (
-				<div className="flex flex-1 items-center justify-center text-zinc-500">
-					Weather data unavailable
-				</div>
+				<div className="flex flex-1 items-center justify-center text-t3">Weather data unavailable</div>
 			)}
 
 			{!loading && weather && (
 				<div className="flex flex-1 flex-col gap-4">
 					{/* Main temperature */}
 					<div className="flex items-end gap-4">
-						<span className="text-7xl font-black tabular-nums text-white">
-							{Math.round(weather.temperature_2m)}°C
-						</span>
-						<span className="mb-2 text-xl text-zinc-400">{wmoDescription(weather.weather_code)}</span>
+						<span className="t-display nums text-7xl text-t1">{Math.round(weather.temperature_2m)}°C</span>
+						<span className="mb-2 text-xl text-t2">{wmoDescription(weather.weather_code)}</span>
 					</div>
 
 					{/* Stat grid */}
@@ -138,6 +133,6 @@ export default function WeatherPanel({ lat, lon, circuitName, locality }: Props)
 					</div>
 				</div>
 			)}
-		</div>
+		</Panel>
 	);
 }

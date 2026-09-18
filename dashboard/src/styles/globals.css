@@ -10,6 +10,66 @@
 
 	--color-popover: rgba(37, 37, 37, 0.9);
 	--color-pane: oklch(18% 0.005 285.82);
+
+	/* --- Semantic design tokens (Apple-design rework) -----------------------
+	 * One palette, one set of roles, adopted by every surface. Mapped onto the
+	 * existing zinc scale so the change is unification, not a visual regression.
+	 * Surfaces layer light-on-dark: s0 page → s1 panel → s2 row/card → s3 hover. */
+	--color-s0: #09090b; /* page (matches OLED-off zinc-950) */
+	--color-s1: #18181b; /* panel   (zinc-900) */
+	--color-s2: #27272a; /* row/card(zinc-800) */
+	--color-s3: #3f3f46; /* hover   (zinc-700) */
+
+	/* Text steps, brightest → dimmest */
+	--color-t1: #fafafa; /* primary */
+	--color-t2: #a1a1aa; /* secondary (zinc-400) */
+	--color-t3: #71717a; /* tertiary  (zinc-500) */
+	--color-t4: #52525b; /* quaternary(zinc-600) */
+
+	/* Brand + semantics. Red is the ONE brand accent (F1 identity); reserve
+	 * --negative for danger so red never means two things in the same view. */
+	--color-accent: #ef4444; /* brand red (text/eyebrow) */
+	--color-accent-strong: #dc2626; /* brand red (bars/fills) */
+	--color-positive: #10b981; /* gained places / catching */
+	--color-negative: #ef4444; /* DNF / lost places / red flag */
+	--color-warning: #f59e0b; /* final-seconds / caution */
+	--color-fastest: #a855f7; /* purple: fastest lap */
+
+	/* Podium accents */
+	--color-gold: #facc15;
+	--color-silver: #cbd5e1;
+	--color-bronze: #d8843a;
+
+	/* Hairline border (a bright top edge reads as light catching a material) */
+	--color-hairline: rgba(255, 255, 255, 0.08);
+}
+
+/* --- Optical typography (Apple §15: tracking & leading are size-specific) ---
+ * Large text needs negative tracking + tight leading; small caps need positive
+ * tracking. Body stays near 0. Build hierarchy from weight + size + leading. */
+@layer components {
+	.t-display {
+		font-weight: 800;
+		line-height: 1.02;
+		letter-spacing: -0.02em;
+	}
+	.t-title {
+		font-weight: 700;
+		line-height: 1.1;
+		letter-spacing: -0.015em;
+	}
+	.t-eyebrow {
+		font-size: 0.75rem;
+		font-weight: 600;
+		line-height: 1;
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+		color: var(--color-accent);
+	}
+	/* Equal-width digits for every number that updates live or aligns in a column */
+	.nums {
+		font-variant-numeric: tabular-nums;
+	}
 }
 
 @layer utilities {
@@ -57,5 +117,35 @@
 	}
 	100% {
 		opacity: 0;
+	}
+}
+
+/* --- Accessibility (Apple §14) ---------------------------------------------
+ * Reduced motion: drop looping/gesture-style motion to a calm static state but
+ * keep opacity changes that aid comprehension. Reduced transparency / more
+ * contrast: solidify translucent chrome and strengthen borders. */
+@media (prefers-reduced-motion: reduce) {
+	/* Suppress DECORATIVE, looping, or vestibular motion only. We stop keyframe
+	 * animations (flashes, marquees, pulses, spinners) but deliberately keep CSS
+	 * transitions — the map's car-position glide is essential live feedback, not
+	 * decoration, and killing it makes cars teleport every ~1s (Apple §14:
+	 * reduced motion is gentler motion, not the absence of motion). Reveal.tsx
+	 * separately shortens its spring to a fade via useReducedMotion. */
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+	}
+	.animate-fastest-lap-flash {
+		animation: none !important;
+	}
+}
+
+@media (prefers-contrast: more) {
+	:root {
+		--color-hairline: rgba(255, 255, 255, 0.28);
+		--color-t2: #d4d4d8;
+		--color-t3: #a1a1aa;
 	}
 }

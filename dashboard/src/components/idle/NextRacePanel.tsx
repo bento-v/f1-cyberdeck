@@ -6,6 +6,8 @@ import type { Round } from "@/types/schedule.type";
 
 import RoundCard from "@/components/schedule/Round";
 import Countdown from "@/components/schedule/Countdown";
+import Panel from "@/components/idle/Panel";
+import PanelHeader from "@/components/idle/PanelHeader";
 
 type Props = {
 	round: Round | null;
@@ -14,8 +16,8 @@ type Props = {
 export default function NextRacePanel({ round }: Props) {
 	if (!round) {
 		return (
-			<div className="flex h-full flex-col items-center justify-center gap-2 p-4">
-				<p className="text-xl text-zinc-400">No upcoming race weekend found</p>
+			<div className="flex h-full flex-col items-center justify-center gap-2 p-6">
+				<p className="text-xl text-t2">No upcoming race weekend found</p>
 			</div>
 		);
 	}
@@ -26,11 +28,11 @@ export default function NextRacePanel({ round }: Props) {
 	const nextRace = round.sessions.find((s) => s.kind.toLowerCase() === "race");
 
 	return (
-		<div className="flex h-full flex-col gap-6 p-4">
-			<h2 className="text-2xl font-bold text-zinc-300">Next Race Weekend</h2>
+		<Panel>
+			<PanelHeader eyebrow="Up Next" title="Next Race Weekend" subtitle={round.name} />
 
-			<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-				<div className="flex flex-col gap-4">
+			<div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+				<div className="flex flex-col gap-5">
 					{nextSession && <Countdown next={nextSession} type="other" />}
 					{nextRace && <Countdown next={nextRace} type="race" />}
 				</div>
@@ -39,6 +41,6 @@ export default function NextRacePanel({ round }: Props) {
 					<RoundCard round={round} />
 				</div>
 			</div>
-		</div>
+		</Panel>
 	);
 }

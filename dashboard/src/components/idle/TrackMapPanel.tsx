@@ -6,6 +6,9 @@ import { fetchMap } from "@/lib/fetchMap";
 import { getCircuitKey } from "@/lib/circuitKeys";
 import { rad, rotate } from "@/lib/map";
 
+import Panel from "@/components/idle/Panel";
+import PanelHeader from "@/components/idle/PanelHeader";
+
 const SPACE = 1000;
 const ROTATION_FIX = 90;
 
@@ -130,20 +133,14 @@ export default function TrackMapPanel({ circuitId, circuitName, countryName }: P
 		: null;
 
 	return (
-		<div className="flex h-full flex-col gap-3 p-6">
-			<div>
-				<p className="text-xs font-semibold uppercase tracking-widest text-red-500">Track Map</p>
-				<h2 className="text-3xl font-bold text-white">{name}</h2>
-				{country && <p className="text-base text-zinc-400">{country}</p>}
-			</div>
+		<Panel>
+			<PanelHeader eyebrow="Track Map" title={name} subtitle={country || undefined} />
 
 			<div className="min-h-0 flex-1">
-				{loading && <div className="h-full w-full animate-pulse rounded-lg bg-zinc-800" />}
+				{loading && <div className="h-full w-full animate-pulse rounded-lg bg-s2" />}
 
 				{!loading && !pathD && (
-					<div className="flex h-full items-center justify-center text-zinc-500">
-						Track map unavailable
-					</div>
+					<div className="flex h-full items-center justify-center text-t3">Track map unavailable</div>
 				)}
 
 				{!loading && pathD && viewBox && (
@@ -193,6 +190,6 @@ export default function TrackMapPanel({ circuitId, circuitName, countryName }: P
 					</svg>
 				)}
 			</div>
-		</div>
+		</Panel>
 	);
 }

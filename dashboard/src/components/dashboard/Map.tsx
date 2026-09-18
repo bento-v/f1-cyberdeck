@@ -417,6 +417,12 @@ export default function Map({ filter }: Props) {
 							// Skip rendering if we can't determine position
 							if (!driverPosition) return null;
 
+							// Alternate the label above/below the dot by running position so
+							// adjacent cars (usually adjacent positions) don't stack their TLAs
+							// on top of each other when the field bunches up.
+							const pos = parseInt(timingDriver?.Position ?? "");
+							const labelBelow = Number.isFinite(pos) ? pos % 2 === 0 : false;
+
 							return (
 								<CarDot
 									key={`map.driver.${driver.RacingNumber}`}
@@ -425,6 +431,7 @@ export default function Map({ filter }: Props) {
 									color={driver.TeamColour}
 									pit={pit}
 									hidden={hidden}
+									labelBelow={labelBelow}
 									pos={driverPosition}
 									rotation={rotation}
 									centerX={centerX}
@@ -459,6 +466,7 @@ type CarDotProps = {
 
 	pit: boolean;
 	hidden: boolean;
+	labelBelow: boolean;
 
 	pos: PositionCar;
 	rotation: number;
@@ -467,16 +475,34 @@ type CarDotProps = {
 	centerY: number;
 };
 
-const CarDot = ({ pos, name, color, favoriteDriver, pit, hidden, rotation, centerX, centerY }: CarDotProps) => {
+const CarDot = ({ pos, name, color, favoriteDriver, pit, hidden, labelBelow, rotation, centerX, centerY }: CarDotProps) => {
 	const rotatedPos = rotate(pos.X, pos.Y, rotation, centerX, centerY);
 	const transform = [`translateX(${rotatedPos.x}px)`, `translateY(${rotatedPos.y}px)`].join(" ");
+
+	// Bigger, outlined TLA that alternates above/below the dot so bunched-up cars
+	// stay legible. A dark stroke drawn under the fill (paint-order: stroke) keeps
+	// the code readable over track lines and overlapping dots.
+	const nameY = labelBelow ? 250 : -140;
+	const pitY = labelBelow ? 375 : 60;
+	const labelOutline = {
+		stroke: "#000",
+		strokeWidth: 24,
+		paintOrder: "stroke" as const,
+		strokeLinejoin: "round" as const,
+	};
 
 	return (
 		<g
 			className={clsx("fill-zinc-700", { "opacity-50": pit }, { "opacity-0!": hidden })}
 			style={{
-				transition: "all 1s linear",
+				// GPS captures arrive ~1s apart; this transition is what glides the dot
+				// between them. Transition ONLY transform (compositor-friendly) — the old
+				// `all` also animated fill/stroke, forcing per-frame repaints that made
+				// the motion stutter (Apple §11: animate transform/opacity only). The
+				// will-change hint promotes each car to its own layer for smooth motion.
+				transition: "transform 0.5s linear, opacity 0.4s ease",
 				transform,
+				willChange: "transform",
 				...(color && { fill: `#${color}` }),
 			}}
 		>
@@ -484,9 +510,10 @@ const CarDot = ({ pos, name, color, favoriteDriver, pit, hidden, rotation, cente
 			<text
 				id={`map.driver.text`}
 				fontWeight="bold"
-				fontSize={120 * 1.3}
+				fontSize={120 * 1.7}
 				style={{
-					transform: "translateX(135px) translateY(-95px)",
+					transform: `translateX(135px) translateY(${nameY}px)`,
+					...labelOutline,
 				}}
 			>
 				{name}
@@ -498,9 +525,9 @@ const CarDot = ({ pos, name, color, favoriteDriver, pit, hidden, rotation, cente
 				<text
 					id={`map.driver.pit`}
 					fontWeight="bold"
-					fontSize={110}
+					fontSize={130}
 					className="fill-cyan-400"
-					style={{ transform: "translateX(135px) translateY(55px)" }}
+					style={{ transform: `translateX(135px) translateY(${pitY}px)`, ...labelOutline }}
 				>
 					PIT
 				</text>
@@ -513,7 +540,6 @@ const CarDot = ({ pos, name, color, favoriteDriver, pit, hidden, rotation, cente
 					r={180}
 					fill="transparent"
 					strokeWidth={40}
-					style={{ transition: "all 1s linear" }}
 				/>
 			)}
 		</g>
