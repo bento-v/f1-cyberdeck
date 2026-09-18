@@ -67,7 +67,7 @@ Pi OS Bookworm (Wayland/labwc)**, built from source via Docker Compose.
         ├── app/dashboard/layout.tsx   live socket wiring + top session bar + kiosk cursor hide
         ├── hooks/  useSessionMode, useSocket, useDataEngine, useBuffer, useStores …
         ├── stores/ useDataStore (live state), useSettingsStore, useSidebarStore
-        ├── components/dashboard/  LeaderBoard, Map, RaceControl, TeamRadios …
+        ├── components/dashboard/  LeaderBoard, Map, RaceControlToasts, TrackStatusBorder …
         ├── components/idle/       carousel + all idle panels (see below)
         └── lib/   inflate (pako), fetchMap, circuitKeys, teamColors, map, sorting …
 ```
@@ -79,7 +79,8 @@ Pi OS Bookworm (Wayland/labwc)**, built from source via Docker Compose.
 
 Render decision:
 - `showLive = isLive || preliveTrigger`
-- if `showLive` → **live layout** (LeaderBoard + Map + RaceControl/TeamRadios/TrackViolations).
+- if `showLive` → **live layout** (FastestLapBanner + LiveLapCount + LeaderBoard + Map +
+  RaceControlToasts + TrackStatusBorder).
 - else if a race just ended → **`<RaceSummary>`** (~90 s, see below).
 - else → **`<IdleCarousel>`**.
 
@@ -259,3 +260,13 @@ Cross-building for the Pi (faster than building on a 4 GB board): `docker buildx
   every frame; CSS transforms over JS animation where possible.
 - Don't reintroduce npm (`package-lock.json`); keep `yarn.lock` authoritative.
 - Don't pull upstream f1-dash images — build from source.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

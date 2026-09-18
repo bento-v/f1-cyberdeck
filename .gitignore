@@ -13,3 +13,6 @@ compose.env
 
 # playwright artifacts (specs run from the repo root land here)
 test-results/
+
+# courier tarball from kiosk/pack.sh
+*.tar.gz

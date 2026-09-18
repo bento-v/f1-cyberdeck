@@ -84,7 +84,39 @@ sudo reboot
 
 `install.sh` installs Docker and Chromium, disables screen blanking, builds all three services
 (`web`, `realtime`, `api`) from source via Docker Compose, and wires up the kiosk to launch on
-boot. See [`CLAUDE.md`](CLAUDE.md) for architecture notes and Pi-specific gotchas.
+boot. See [`SETUP.md`](SETUP.md) for the service/environment reference and [`CLAUDE.md`](CLAUDE.md)
+for architecture notes and Pi-specific gotchas.
+
+### Copy-deploy without git
+
+No git on the Pi? Ship a source tarball instead. From a dev machine:
+
+```bash
+bash kiosk/pack.sh                 # writes ./f1-cyberdeck.tar.gz (~1–2 MB, source only)
+scp f1-cyberdeck.tar.gz pi@<pi-host>:~/
+```
+
+Then on the Pi:
+
+```bash
+mkdir -p ~/f1-cyberdeck && tar -xzf ~/f1-cyberdeck.tar.gz -C ~/f1-cyberdeck
+bash ~/f1-cyberdeck/kiosk/install.sh && sudo reboot
+```
+
+`install.sh` detects a manually-copied tree (no `.git`, `compose.yaml` present) and skips the
+clone. The tarball excludes `node_modules`, build output, git history and dev-only replay data; the
+Pi rebuilds everything for arm64.
+
+### Kiosk display care
+
+Two things keep the 24/7 display healthy and legible:
+
+- **Burn-in protection** — the whole UI slowly drifts a few pixels once a minute so no bright,
+  static element (leaderboard frame, session bar) ghosts an older panel. Automatic in kiosk builds;
+  imperceptible in normal viewing.
+- **Readable team colours** — driver codes and the fastest-lap time are drawn in each team's real
+  brand palette, contrast-checked (WCAG AA) so light liveries (Mercedes, Williams, Haas …) stay
+  readable "from across the room" instead of washing out.
 
 ## Local development
 
@@ -101,6 +133,10 @@ session:
 yarn mock:live      # synthetic live feed
 yarn replay         # replays a real recorded race (2026 Austrian GP) over SSE
 ```
+
+Dev shortcuts (query params, inert in the kiosk build): `?testCountdown=1` fakes a 35→0 pre-race
+countdown; `?burnin=1` enables the pixel-shift locally (`?burnin=3` speeds it to 3 s steps so the
+drift is visible).
 
 Tests: `npx playwright test` (from `dashboard/`).
 
