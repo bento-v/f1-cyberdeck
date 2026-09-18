@@ -61,17 +61,17 @@ export default function IdleCountdownBar({ nextSession, roundName, onPreLive }: 
 	const hasData = days !== null;
 
 	return (
-		<div data-testid="idle-countdown-bar" className="flex w-full items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 px-6 py-4">
+		<div data-testid="idle-countdown-bar" className="flex w-full items-center justify-between rounded-lg border border-hairline bg-s1 px-6 py-4 shadow-lg shadow-black/20">
 			<div>
-				{roundName && <p className="text-sm text-zinc-500">{roundName}</p>}
-				<p className="text-2xl font-bold">
-					Next: <span className="text-white">{sessionLabel}</span>
+				{roundName && <p className="text-sm text-t3">{roundName}</p>}
+				<p className="t-title text-2xl text-t2">
+					Next: <span className="text-t1">{sessionLabel}</span>
 				</p>
 			</div>
 
-			<div className="flex items-baseline gap-4 text-right font-mono">
+			<div className="nums flex items-baseline gap-4 text-right font-mono">
 				{!hasData ? (
-					<p className="text-3xl text-zinc-500">--:--:--</p>
+					<p className="text-3xl text-t3">--:--:--</p>
 				) : days != null && days > 0 ? (
 					<>
 						<Segment value={days} label="days" />
@@ -94,8 +94,8 @@ function Segment({ value, label, highlight }: { value: number | null; label: str
 	const text = value == null ? "--" : String(value).padStart(2, "0");
 	return (
 		<div className="flex flex-col items-center">
-			<p className={`text-4xl font-bold leading-none ${highlight ? "text-red-400" : "text-white"}`}>{text}</p>
-			<p className="text-xs text-zinc-500">{label}</p>
+			<p className={`nums text-4xl font-bold leading-none ${highlight ? "text-warning" : "text-t1"}`}>{text}</p>
+			<p className="text-xs text-t3">{label}</p>
 		</div>
 	);
 }

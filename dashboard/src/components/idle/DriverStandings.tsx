@@ -3,6 +3,10 @@
 import type { JolpicaDriverStanding } from "@/types/jolpica.type";
 import { getTeamColor } from "@/lib/teamColors";
 
+import Panel from "@/components/idle/Panel";
+import PanelHeader from "@/components/idle/PanelHeader";
+import StandingRow from "@/components/idle/StandingRow";
+
 type Props = {
 	standings: JolpicaDriverStanding[];
 	season: string;
@@ -10,37 +14,29 @@ type Props = {
 
 export default function DriverStandings({ standings, season }: Props) {
 	return (
-		<div className="flex h-full flex-col gap-4 p-4">
-			<h2 className="text-2xl font-bold text-zinc-300">
-				Drivers&apos; Championship{" "}
-				<span className="text-base font-normal text-zinc-500">{season}</span>
-			</h2>
+		<Panel padded={false} className="p-6">
+			<PanelHeader
+				eyebrow="Championship"
+				title="Drivers"
+				aside={<span className="nums text-lg font-semibold text-t3">{season}</span>}
+			/>
 
-			<div className="grid grid-cols-2 gap-x-8 gap-y-1">
-				{standings.map((entry) => {
-					const teamColor = getTeamColor(entry.Constructors[0]?.constructorId ?? "");
-					return (
-						<div
-							key={entry.Driver.driverId}
-							className="flex items-center gap-3 rounded px-2 py-1.5"
-						>
-							<span className="w-6 text-right text-sm font-bold text-zinc-500">{entry.position}</span>
-
-							<div
-								className="h-5 w-1.5 shrink-0 rounded-full"
-								style={{ backgroundColor: `#${teamColor}` }}
-							/>
-
-							<span className="flex-1 text-lg font-semibold">
-								{entry.Driver.givenName[0]}. {entry.Driver.familyName}
-							</span>
-
-							<span className="text-lg font-bold tabular-nums">{entry.points}</span>
-							<span className="text-xs text-zinc-500">pts</span>
-						</div>
-					);
-				})}
+			<div className="grid min-h-0 flex-1 grid-cols-2 gap-x-6 gap-y-0.5 overflow-y-auto">
+				{standings.map((entry) => (
+					<StandingRow
+						key={entry.Driver.driverId}
+						position={entry.position}
+						teamColor={getTeamColor(entry.Constructors[0]?.constructorId ?? "")}
+						primary={`${entry.Driver.givenName[0]}. ${entry.Driver.familyName}`}
+						value={
+							<>
+								{entry.points}
+								<span className="ml-1 text-xs font-normal text-t3">pts</span>
+							</>
+						}
+					/>
+				))}
 			</div>
-		</div>
+		</Panel>
 	);
 }

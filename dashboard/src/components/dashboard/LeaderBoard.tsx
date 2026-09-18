@@ -26,6 +26,10 @@ export default function LeaderBoard() {
 					<AnimatePresence>
 						{Object.values(driversTiming.Lines)
 							.sort(sortPos)
+							// DriverList and TimingData are independent live topics; a racing
+							// number can appear in timing before (or without) a DriverList entry.
+							// Skip those until the driver exists rather than crashing the page.
+							.filter((timingDriver) => drivers[timingDriver.RacingNumber])
 							.map((timingDriver, index) => (
 								<Driver
 									key={`leaderBoard.driver.${timingDriver.RacingNumber}`}
@@ -46,7 +50,7 @@ const TableHeaders = () => {
 
 	return (
 		<div
-			className="grid items-center gap-2 p-1 px-2 text-sm font-medium text-zinc-500"
+			className="grid items-center gap-2 p-1 px-2 text-sm font-medium text-t3"
 			style={{
 				gridTemplateColumns: carMetrics
 					? "5.5rem 3.5rem 5.5rem 4rem 5rem 5.5rem 10.5rem"
@@ -67,7 +71,7 @@ const TableHeaders = () => {
 const SkeletonDriver = () => {
 	const carMetrics = useSettingsStore((state) => state.carMetrics);
 
-	const animateClass = "h-8 animate-pulse rounded-md bg-zinc-800";
+	const animateClass = "h-8 animate-pulse rounded-md bg-s2";
 
 	return (
 		<div

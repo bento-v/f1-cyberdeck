@@ -6,6 +6,7 @@ import "@/styles/globals.css";
 import { env } from "@/env";
 import EnvScript from "@/env-script";
 import OledModeProvider from "@/components/OledModeProvider";
+import BurnInGuard from "@/components/BurnInGuard";
 
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
@@ -31,7 +32,9 @@ export default function RootLayout({ children }: Props) {
 			</head>
 
 			<body>
-				<OledModeProvider>{children}</OledModeProvider>
+				<OledModeProvider>
+					<BurnInGuard>{children}</BurnInGuard>
+				</OledModeProvider>
 			</body>
 		</html>
 	);

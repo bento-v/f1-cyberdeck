@@ -192,6 +192,26 @@ function runReplayServer(file) {
 		return deflateB64({ Position: [{ Timestamp: nowUtc(), Entries }] });
 	};
 
+	// GPS keyframes are ~1s apart in the extract. A real live feed streams positions
+	// several times a second, so between keyframes we linearly interpolate each car's
+	// X/Y by `frac` (0→1 across the gap) and emit at the tick rate. That turns the
+	// sparse keyframes into a dense, continuous stream — the map then glides like a
+	// lossless live feed instead of stepping once per second. (Interpolation is
+	// skipped across a retirement or a missing sample, where a lerp would be wrong.)
+	const positionZInterp = (i, frac) => {
+		const j = Math.min(i + 1, F - 1);
+		const Entries = {};
+		for (const num of nums) {
+			const d = data.driverFrames[num];
+			const x0 = d.x[i], y0 = d.y[i], x1 = d.x[j], y1 = d.y[j];
+			const skip = x0 == null || y0 == null || x1 == null || y1 == null || d.ret[i] || d.ret[j];
+			const X = skip ? x0 : Math.round(x0 + (x1 - x0) * frac);
+			const Y = skip ? y0 : Math.round(y0 + (y1 - y0) * frac);
+			Entries[num] = { Status: d.ret[i] ? "OffTrack" : "OnTrack", X, Y, Z: 0 };
+		}
+		return deflateB64({ Position: [{ Timestamp: nowUtc(), Entries }] });
+	};
+
 	// Derive TrackStatus from the recorded race-control messages (the extract has
 	// no separate track-status timeline): the latest SC/VSC/red/clear event at or
 	// before frame time wins. Codes match lib/getTrackStatusMessage.
@@ -266,7 +286,9 @@ function runReplayServer(file) {
 		// picking the frame at the cursor means slow speeds repeat frames and fast
 		// speeds skip them — unlike a fixed frames-per-tick, which floored playback
 		// at stepMs/TICK_MS (≈4×) regardless of SPEED.
-		const TICK_MS = 250;
+		// 100ms tick so interpolated positions stream ~10×/s — dense enough that the
+		// dashboard's 200ms sampler always has a fresh point and the map glides.
+		const TICK_MS = 100;
 		const lastTms = data.frameTms[F - 1];
 		let cursorMs = data.frameTms[startIdx];
 		let finished = false;
@@ -288,7 +310,13 @@ function runReplayServer(file) {
 					return; // keep connection open, race over
 				}
 			}
-			send("update", buildUpdate(i));
+
+			// Fraction of the way from keyframe i to i+1, for smooth position interpolation.
+			const span = (data.frameTms[Math.min(i + 1, F - 1)] - data.frameTms[i]) || 1;
+			const frac = Math.max(0, Math.min(1, (cursorMs - data.frameTms[i]) / span));
+			const update = buildUpdate(i);
+			update["Position.z"] = positionZInterp(i, frac);
+			send("update", update);
 		}, TICK_MS);
 
 		req.on("close", () => {
@@ -498,22 +526,10 @@ function buildTimingAppData() {
 	return { Lines };
 }
 
-// ---- Position + CarData (compressed) ---------------------------------------
-// Cars looping around an ellipse — not a real track shape, but gives the Map dots that move.
-function buildPositionEntries(t) {
-	const Entries = {};
-	order.forEach((num, idx) => {
-		const angle = (t / 4000 + idx / order.length) * Math.PI * 2;
-		Entries[num] = {
-			Status: "OnTrack",
-			X: Math.round(Math.cos(angle) * 8000),
-			Y: Math.round(Math.sin(angle) * 5000),
-			Z: 0,
-		};
-	});
-	return Entries;
-}
-
+// ---- CarData (compressed) --------------------------------------------------
+// The synthetic feed intentionally sends NO PositionZ (GPS): the Map then uses
+// TimingData segment-progress placement, which keeps dots on the real track
+// outline. (The FastF1 replay server sends real PositionZ instead.)
 function buildCars() {
 	const cars = {};
 	order.forEach((num) => {
@@ -536,7 +552,6 @@ function buildCars() {
 
 const nowUtc = () => new Date().toISOString();
 
-const positionZ = (t) => deflateB64({ Position: [{ Timestamp: nowUtc(), Entries: buildPositionEntries(t) }] });
 const carDataZ = () => deflateB64({ Entries: [{ Utc: nowUtc(), Cars: buildCars() }] });
 
 const raceControlMessages = [

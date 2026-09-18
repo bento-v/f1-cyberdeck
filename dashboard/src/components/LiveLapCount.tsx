@@ -10,11 +10,14 @@ export default function LiveLapCount() {
 	if (!lapCount) return null;
 
 	return (
-		<div data-testid="live-lap-count" className="flex shrink-0 items-center rounded-lg border border-zinc-800 px-4 py-2">
+		<div
+			data-testid="live-lap-count"
+			className="flex shrink-0 items-center rounded-lg border border-hairline bg-s1 px-4 py-2 shadow-lg shadow-black/20"
+		>
 			<div className="text-right">
-				<p className="text-xs font-semibold uppercase tracking-widest text-zinc-400">Lap</p>
-				<p className="font-mono text-2xl font-bold leading-tight whitespace-nowrap">
-					{lapCount.CurrentLap} <span className="text-zinc-500">/ {lapCount.TotalLaps}</span>
+				<p className="t-eyebrow text-t2">Lap</p>
+				<p className="nums t-display mt-1 font-mono text-2xl leading-tight whitespace-nowrap text-t1">
+					{lapCount.CurrentLap} <span className="text-t3">/ {lapCount.TotalLaps}</span>
 				</p>
 			</div>
 		</div>

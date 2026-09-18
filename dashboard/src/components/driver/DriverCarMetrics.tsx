@@ -23,13 +23,13 @@ export default function DriverCarMetrics({ carData }: Props) {
 				<p className="text-right font-mono leading-none font-medium">
 					{speedUnit === "metric" ? carData[2] : convertKmhToMph(carData[2])}
 				</p>
-				<p className="text-sm leading-none text-zinc-600">{speedUnit === "metric" ? "km/h" : "mp/h"}</p>
+				<p className="text-sm leading-none text-t4">{speedUnit === "metric" ? "km/h" : "mp/h"}</p>
 			</div>
 
 			<div className="flex flex-col">
 				<div className="flex flex-col gap-1">
-					<DriverPedals className="bg-red-500" value={carData[5]} maxValue={1} />
-					<DriverPedals className="bg-emerald-500" value={carData[4]} maxValue={100} />
+					<DriverPedals className="bg-negative" value={carData[5]} maxValue={1} />
+					<DriverPedals className="bg-positive" value={carData[4]} maxValue={100} />
 					<DriverPedals className="bg-blue-500" value={carData[0]} maxValue={15000} />
 				</div>
 			</div>

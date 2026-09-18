@@ -64,7 +64,7 @@ export default function DashboardLayout({ children }: Props) {
 				<div
 					className={
 						syncing && !ended
-							? 'flex h-full flex-1 flex-col items-center justify-center gap-2 border-zinc-800 md:rounded-lg md:border'
+							? 'flex h-full flex-1 flex-col items-center justify-center gap-2 border-hairline md:rounded-lg md:border'
 							: 'hidden'
 					}
 				>
@@ -79,7 +79,7 @@ export default function DashboardLayout({ children }: Props) {
 
 function MobileDynamicBar() {
 	return (
-		<div className="flex flex-col divide-y divide-zinc-800 border-b border-zinc-800 md:hidden">
+		<div className="flex flex-col divide-y divide-hairline border-b border-hairline md:hidden">
 			<div className="p-2">
 				<SessionInfo />
 			</div>
@@ -96,7 +96,7 @@ function MobileStaticBar({ show, connected }: { show: boolean; connected: boolea
 	const open = useSidebarStore((state) => state.open);
 
 	return (
-		<div className="flex w-full items-center justify-between overflow-hidden border-b border-zinc-800 p-2 md:hidden">
+		<div className="flex w-full items-center justify-between overflow-hidden border-b border-hairline p-2 md:hidden">
 			<div className="flex items-center gap-2">
 				{!isKiosk && <SidenavButton key="mobile" onClick={() => open()} />}
 
@@ -118,7 +118,7 @@ function DesktopStaticBar({ show }: { show: boolean }) {
 	return (
 		<div
 			data-testid="session-bar"
-			className="hidden w-full flex-row justify-between overflow-hidden rounded-lg border border-zinc-800 p-2 md:flex"
+			className="hidden w-full flex-row justify-between overflow-hidden rounded-lg border border-hairline bg-s1 p-2 shadow-lg shadow-black/20 md:flex"
 		>
 			<div className="flex items-center gap-2">
 				<AnimatePresence>

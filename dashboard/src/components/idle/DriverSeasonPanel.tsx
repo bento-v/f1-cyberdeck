@@ -3,6 +3,10 @@
 import type { JolpicaDriverStanding } from "@/types/jolpica.type";
 import { getTeamColor } from "@/lib/teamColors";
 
+import Panel from "@/components/idle/Panel";
+import PanelHeader from "@/components/idle/PanelHeader";
+import StandingRow from "@/components/idle/StandingRow";
+
 type Props = {
 	standings: JolpicaDriverStanding[];
 	season: string;
@@ -13,12 +17,14 @@ export default function DriverSeasonPanel({ standings, season }: Props) {
 	const leaderPts = Number(standings[0]?.points ?? 0);
 
 	return (
-		<div className="flex h-full flex-col gap-2 overflow-y-auto p-4">
-			<h2 className="text-2xl font-bold text-zinc-300">
-				Driver Stats <span className="text-base font-normal text-zinc-500">{season}</span>
-			</h2>
+		<Panel padded={false} className="p-6">
+			<PanelHeader
+				eyebrow="Season"
+				title="Driver Stats"
+				aside={<span className="nums text-lg font-semibold text-t3">{season}</span>}
+			/>
 
-			<div className="flex flex-col gap-1.5">
+			<div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
 				{standings.map((entry) => {
 					const pts = Number(entry.points);
 					const wins = Number(entry.wins);
@@ -28,40 +34,22 @@ export default function DriverSeasonPanel({ standings, season }: Props) {
 
 					return (
 						<div key={entry.Driver.driverId} className="flex flex-col gap-0.5">
-							<div className="flex items-center gap-2">
-								<span className="w-5 text-right text-xs font-bold text-zinc-500">
-									{entry.position}
-								</span>
-
-								<div
-									className="h-4 w-1 shrink-0 rounded-full"
-									style={{ backgroundColor: `#${color}` }}
-								/>
-
-								<span className="w-36 truncate text-sm font-semibold">
-									{entry.Driver.givenName[0]}. {entry.Driver.familyName}
-								</span>
-
-								<span className="flex-1 truncate text-xs text-zinc-500">
-									{entry.Constructors[0]?.name}
-								</span>
-
-								{wins > 0 && (
-									<span className="text-xs font-bold text-yellow-400">{wins}W</span>
-								)}
-
-								{gap > 0 && (
-									<span className="w-16 text-right text-xs text-zinc-500">
-										&minus;{gap}
-									</span>
-								)}
-
-								<span className="w-12 text-right text-sm font-bold tabular-nums">
-									{entry.points}
-								</span>
-							</div>
-
-							<div className="ml-8 h-0.5 overflow-hidden rounded-full bg-zinc-800">
+							<StandingRow
+								position={entry.position}
+								teamColor={color}
+								primary={`${entry.Driver.givenName[0]}. ${entry.Driver.familyName}`}
+								secondary={entry.Constructors[0]?.name}
+								extra={
+									<div className="flex items-center gap-3">
+										{wins > 0 && (
+											<span className="text-xs font-bold text-gold">{wins}W</span>
+										)}
+										{gap > 0 && <span className="nums w-14 text-right text-xs text-t3">&minus;{gap}</span>}
+									</div>
+								}
+								value={<span className="text-t1">{entry.points}</span>}
+							/>
+							<div className="mx-3 ml-[2.5rem] h-0.5 overflow-hidden rounded-full bg-s2">
 								<div
 									className="h-full rounded-full"
 									style={{ width: `${barPct}%`, backgroundColor: `#${color}` }}
@@ -71,6 +59,6 @@ export default function DriverSeasonPanel({ standings, season }: Props) {
 					);
 				})}
 			</div>
-		</div>
+		</Panel>
 	);
 }

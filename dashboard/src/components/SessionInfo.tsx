@@ -42,18 +42,18 @@ export default function SessionInfo() {
 
 			<div className="flex flex-col justify-center">
 				{session ? (
-					<h1 className="truncate text-sm leading-none font-medium text-white">
+					<h1 className="truncate text-sm leading-none font-medium text-t1">
 						{session.Meeting.Name}: {session.Name ?? "Unknown"}
 						{timingData?.SessionPart ? ` ${sessionPartPrefix(session.Name)}${timingData.SessionPart}` : ""}
 					</h1>
 				) : (
-					<div className="h-4 w-[250px] animate-pulse rounded-md bg-zinc-800" />
+					<div className="h-4 w-[250px] animate-pulse rounded-md bg-s2" />
 				)}
 
 				{timeRemaining !== undefined ? (
 					<p className="text-2xl leading-none font-extrabold">{timeRemaining}</p>
 				) : (
-					<div className="mt-1 h-6 w-[150px] animate-pulse rounded-md bg-zinc-800 font-semibold" />
+					<div className="mt-1 h-6 w-[150px] animate-pulse rounded-md bg-s2 font-semibold" />
 				)}
 			</div>
 		</div>
